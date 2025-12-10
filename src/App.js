@@ -33,8 +33,8 @@ const LoginPage = ({ onLogin }) => {
         return;
       }
 
-      // Simple password check (in production, use bcrypt)
-      if (password === 'admin123' && username === 'admin') {
+      // Simple password check
+      if (password === 'v@t+Hw%8Kf5ds9f' && username === 'Suhaib-acc') {
         // Store login in localStorage
         localStorage.setItem('adminAuth', JSON.stringify({ username: data.username, loggedIn: true }));
         onLogin();
@@ -95,7 +95,7 @@ const LoginPage = ({ onLogin }) => {
         </form>
 
         <p style={{ fontSize: '12px', color: '#9ca3af', marginTop: '24px', textAlign: 'center' }}>
-          Default: admin / admin123
+          Contact admin for credentials
         </p>
       </div>
     </div>
