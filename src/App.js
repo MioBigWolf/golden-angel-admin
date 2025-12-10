@@ -7,6 +7,101 @@ const CHECKLIST_TEMPLATES = [
   'Walkway to door', 'Garage entrance', 'Porch', 'Parking area'
 ];
 
+// Login Component
+const LoginPage = ({ onLogin }) => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      // Query admin_users table
+      const { data, error } = await supabase
+        .from('admin_users')
+        .select('*')
+        .eq('username', username)
+        .single();
+
+      if (error || !data) {
+        setError('Invalid username or password');
+        setLoading(false);
+        return;
+      }
+
+      // Simple password check (in production, use bcrypt)
+      if (password === 'admin123' && username === 'admin') {
+        // Store login in localStorage
+        localStorage.setItem('adminAuth', JSON.stringify({ username: data.username, loggedIn: true }));
+        onLogin();
+      } else {
+        setError('Invalid username or password');
+      }
+    } catch (err) {
+      setError('Login failed. Please try again.');
+    }
+
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+      <div style={{ background: 'white', borderRadius: '16px', padding: '48px', maxWidth: '400px', width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+        <h1 style={{ fontSize: '32px', fontWeight: 'bold', marginBottom: '8px', textAlign: 'center', color: '#1f2937' }}>Golden Angel</h1>
+        <p style={{ fontSize: '16px', color: '#6b7280', marginBottom: '32px', textAlign: 'center' }}>Admin Dashboard</p>
+
+        <form onSubmit={handleLogin}>
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>Username</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter username"
+              required
+              style={{ width: '100%', padding: '12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '16px' }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '24px' }}>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter password"
+              required
+              style={{ width: '100%', padding: '12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '16px' }}
+            />
+          </div>
+
+          {error && (
+            <div style={{ background: '#fee2e2', color: '#991b1b', padding: '12px', borderRadius: '8px', marginBottom: '20px', fontSize: '14px' }}>
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{ width: '100%', padding: '14px', background: loading ? '#9ca3af' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: '600', cursor: loading ? 'not-allowed' : 'pointer' }}
+          >
+            {loading ? 'Logging in...' : 'Login'}
+          </button>
+        </form>
+
+        <p style={{ fontSize: '12px', color: '#9ca3af', marginTop: '24px', textAlign: 'center' }}>
+          Default: admin / admin123
+        </p>
+      </div>
+    </div>
+  );
+};
+
 // SearchBar component - fixed version based on working SearchableDropdown pattern
 const SearchBar = React.memo(({ value, onChange }) => {
   const inputRef = React.useRef(null);
@@ -2628,9 +2723,22 @@ const AdminDashboard = () => {
   return (
     <div style={{ minHeight: '100vh', background: '#f3f4f6' }}>
       <div style={{ background: 'linear-gradient(to right, #2563eb, #1e40af)', color: 'white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', maxHeight: '60px' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '12px 24px' }}>
-          <h1 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0 }}>Golden Angel Snow Removal</h1>
-          <p style={{ color: '#bfdbfe', marginTop: '2px', fontSize: '12px', margin: 0 }}>Admin Dashboard</p>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '12px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h1 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0 }}>Golden Angel Snow Removal</h1>
+            <p style={{ color: '#bfdbfe', marginTop: '2px', fontSize: '12px', margin: 0 }}>Admin Dashboard</p>
+          </div>
+          <button
+            onClick={() => {
+              if (window.confirm('Are you sure you want to logout?')) {
+                localStorage.removeItem('adminAuth');
+                window.location.reload();
+              }
+            }}
+            style={{ padding: '8px 16px', background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}
+          >
+            Logout
+          </button>
         </div>
       </div>
       <div style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', position: 'sticky', top: 0, zIndex: 10 }}>
@@ -3294,4 +3402,39 @@ const AdminDashboard = () => {
   );
 };
 
-export default AdminDashboard;
+// Main App component with authentication
+const App = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    // Check if user is already logged in
+    const authData = localStorage.getItem('adminAuth');
+    if (authData) {
+      try {
+        const parsed = JSON.parse(authData);
+        if (parsed.loggedIn) {
+          setIsAuthenticated(true);
+        }
+      } catch (e) {
+        localStorage.removeItem('adminAuth');
+      }
+    }
+  }, []);
+
+  const handleLogin = () => {
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('adminAuth');
+    setIsAuthenticated(false);
+  };
+
+  if (!isAuthenticated) {
+    return <LoginPage onLogin={handleLogin} />;
+  }
+
+  return <AdminDashboard onLogout={handleLogout} />;
+};
+
+export default App;
