@@ -7,7 +7,11 @@
       "Bash(curl -X POST \"https://dbmnwphxjcvctdkmbuwi.supabase.co/rest/v1/rpc/reload_schema\" -H \"apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRibW53cGh4amN2Y3Rka21idXdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI5OTUwNzksImV4cCI6MjA0ODU3MTA3OX0.ZD1D_vZx-pJCGVHdBn93g2v-YN5lRNY7KClLUE64uLI\" -H \"Content-Type: application/json\")",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(npx expo start:*)",
+      "Bash(npx expo login -u miothemio -p \"Miothegreat.134mio\")",
+      "Bash(npx expo publish)",
+      "Bash(npm install:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

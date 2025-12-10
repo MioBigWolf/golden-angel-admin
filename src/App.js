@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Users, Home, Calendar, Plus, Trash2, CheckCircle, Clock, Upload, X, Edit, Search, Grid3x3, List } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
-const CHECKLIST_TEMPLATES = [
+const DEFAULT_CHECKLIST_TEMPLATES = [
   'City sidewalk', 'Driveway', 'Front steps', 'Back deck',
   'Walkway to door', 'Garage entrance', 'Porch', 'Parking area'
 ];
@@ -193,11 +193,22 @@ const AdminDashboard = () => {
   const [propertyPhotoIndexes, setPropertyPhotoIndexes] = useState({});
   const [showClientReportModal, setShowClientReportModal] = useState(false);
   const [clientReportData, setClientReportData] = useState(null);
+  const [checklistTemplates, setChecklistTemplates] = useState(() => {
+    const saved = localStorage.getItem('checklistTemplates');
+    return saved ? JSON.parse(saved) : DEFAULT_CHECKLIST_TEMPLATES;
+  });
+  const [showTemplateEditor, setShowTemplateEditor] = useState(false);
+  const [newTemplate, setNewTemplate] = useState('');
 
   // Stable onChange handler for SearchBar to prevent re-renders
   const handleSearchChange = useCallback((e) => {
     setSearchTerm(e.target.value);
   }, []);
+
+  // Save checklist templates to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('checklistTemplates', JSON.stringify(checklistTemplates));
+  }, [checklistTemplates]);
 
   useEffect(() => {
     loadAllData();
@@ -578,7 +589,7 @@ const AdminDashboard = () => {
         client_name: clientReportData.clientName,
         property_name: clientReportData.propertyName,
         property_address: clientReportData.propertyAddress,
-        started_at: clientReportData.startedAt,
+        completed_at: clientReportData.completedDate,
         notes: clientReportData.notes,
         pdf_attachment: base64PDF,
         pdf_filename: `Snow_Removal_Report_${clientReportData.propertyName.replace(/\s/g, '_')}.pdf`
@@ -657,8 +668,8 @@ const AdminDashboard = () => {
   };
 
   const addOrUpdateProperty = async () => {
-    if (!propertyForm.client_id || !propertyForm.property_name || !propertyForm.address) {
-      alert('Please fill in all required fields');
+    if (!propertyForm.client_id || !propertyForm.address) {
+      alert('Please fill in all required fields (Client and Address)');
       return;
     }
     
@@ -2981,7 +2992,7 @@ const AdminDashboard = () => {
                 placeholder="Select Client *"
                 displayKey="name"
               />
-              <input type="text" placeholder="Property Name *" value={propertyForm.property_name} onChange={(e) => setPropertyForm({...propertyForm, property_name: e.target.value})} style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px' }} />
+              <input type="text" placeholder="Property Name (Optional)" value={propertyForm.property_name} onChange={(e) => setPropertyForm({...propertyForm, property_name: e.target.value})} style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px' }} />
 
               <div>
                 <input type="text" placeholder="Full Address *" value={propertyForm.address} onChange={(e) => setPropertyForm({...propertyForm, address: e.target.value})} style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px', width: '100%' }} />
@@ -3022,9 +3033,17 @@ const AdminDashboard = () => {
               <textarea placeholder="Special Notes" value={propertyForm.special_notes} onChange={(e) => setPropertyForm({...propertyForm, special_notes: e.target.value})} style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px', minHeight: '80px' }} />
               
               <div>
-                <label style={{ fontWeight: '600', display: 'block', marginBottom: '10px' }}>Services Checklist * (select at least one)</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <label style={{ fontWeight: '600' }}>Services Checklist * (select at least one)</label>
+                  <button
+                    onClick={() => setShowTemplateEditor(true)}
+                    style={{ padding: '6px 12px', background: '#6b7280', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <Edit size={14} /> Edit Templates
+                  </button>
+                </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
-                  {CHECKLIST_TEMPLATES.map(item => (
+                  {checklistTemplates.map(item => (
                     <button key={item} onClick={() => toggleChecklistItem(item)} style={{padding: '8px 16px', borderRadius: '20px', border: selectedChecklistItems.includes(item) ? '2px solid #2563eb' : '2px solid #d1d5db', background: selectedChecklistItems.includes(item) ? '#dbeafe' : 'white', color: selectedChecklistItems.includes(item) ? '#1e40af' : '#6b7280', cursor: 'pointer', fontSize: '14px', fontWeight: '500'}}>{item}</button>
                   ))}
                 </div>
@@ -3393,6 +3412,77 @@ const AdminDashboard = () => {
                 </button>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Template Editor Modal */}
+      {showTemplateEditor && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60 }}>
+          <div style={{ background: 'white', borderRadius: '12px', padding: '32px', maxWidth: '500px', width: '90%', maxHeight: '80vh', overflow: 'auto' }}>
+            <h3 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '20px' }}>Edit Checklist Templates</h3>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: '#374151' }}>Service Templates</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                {checklistTemplates.map((template, index) => (
+                  <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', background: '#f9fafb', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
+                    <span style={{ flex: 1, fontSize: '14px' }}>{template}</span>
+                    <button
+                      onClick={() => setChecklistTemplates(checklistTemplates.filter((_, i) => i !== index))}
+                      style={{ padding: '6px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  placeholder="Add new template"
+                  value={newTemplate}
+                  onChange={(e) => setNewTemplate(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && newTemplate.trim()) {
+                      setChecklistTemplates([...checklistTemplates, newTemplate.trim()]);
+                      setNewTemplate('');
+                    }
+                  }}
+                  style={{ flex: 1, border: '1px solid #d1d5db', borderRadius: '6px', padding: '10px', fontSize: '14px' }}
+                />
+                <button
+                  onClick={() => {
+                    if (newTemplate.trim()) {
+                      setChecklistTemplates([...checklistTemplates, newTemplate.trim()]);
+                      setNewTemplate('');
+                    }
+                  }}
+                  style={{ padding: '10px 16px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+              <button
+                onClick={() => {
+                  setChecklistTemplates(DEFAULT_CHECKLIST_TEMPLATES);
+                  alert('Templates reset to defaults!');
+                }}
+                style={{ flex: 1, padding: '12px', background: '#6b7280', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}
+              >
+                Reset to Defaults
+              </button>
+              <button
+                onClick={() => setShowTemplateEditor(false)}
+                style={{ flex: 1, padding: '12px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}
