@@ -176,6 +176,9 @@ const AdminDashboard = () => {
   const [editingJobId, setEditingJobId] = useState(null);
   const [newWorkerId, setNewWorkerId] = useState('');
   const [deduplicateRecurring, setDeduplicateRecurring] = useState(true);
+  const [dateFilter, setDateFilter] = useState('all'); // 'all', 'today', '7days', 'custom'
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [viewModes, setViewModes] = useState({
     workers: 'grid',
     clients: 'grid',
@@ -199,6 +202,8 @@ const AdminDashboard = () => {
   });
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
   const [newTemplate, setNewTemplate] = useState('');
+  const [completionNotifications, setCompletionNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   // Stable onChange handler for SearchBar to prevent re-renders
   const handleSearchChange = useCallback((e) => {
@@ -212,6 +217,86 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     loadAllData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Close notifications dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showNotifications && !event.target.closest('[data-notification-panel]')) {
+        setShowNotifications(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showNotifications]);
+
+  // Realtime subscription for job completions
+  useEffect(() => {
+    const subscription = supabase
+      .channel('job_completions')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'jobs',
+        filter: 'status=eq.completed'
+      }, async (payload) => {
+        // Reload jobs to get fresh data
+        await loadJobs();
+
+        // Check if worker completed all their jobs
+        const workerId = payload.new.worker_id;
+        const scheduledDate = payload.new.scheduled_date;
+
+        if (workerId && scheduledDate) {
+          // Get all jobs for this worker on this date
+          const { data: workerJobs, error } = await supabase
+            .from('jobs')
+            .select('*, profiles!jobs_worker_id_fkey(full_name)')
+            .eq('worker_id', workerId)
+            .gte('scheduled_date', scheduledDate)
+            .lt('scheduled_date', new Date(new Date(scheduledDate).getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+
+          if (!error && workerJobs && workerJobs.length > 0) {
+            const completedJobs = workerJobs.filter(j => j.status === 'completed');
+            const percentage = Math.round((completedJobs.length / workerJobs.length) * 100);
+
+            // If 100% complete, show notification
+            if (percentage === 100) {
+              const workerName = workerJobs[0].profiles?.full_name || 'Worker';
+              const notification = {
+                id: Date.now(),
+                workerId: workerId,
+                workerName: workerName,
+                date: scheduledDate,
+                totalJobs: workerJobs.length,
+                timestamp: new Date().toISOString()
+              };
+
+              setCompletionNotifications(prev => [notification, ...prev]);
+
+              // Show browser notification if permissions granted
+              if (Notification.permission === 'granted') {
+                new Notification('🎉 Worker Completed All Jobs!', {
+                  body: `${workerName} finished all ${workerJobs.length} jobs for ${scheduledDate}`,
+                  icon: '/favicon.ico'
+                });
+              }
+            }
+          }
+        }
+      })
+      .subscribe();
+
+    // Request notification permissions
+    if (Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
+    return () => {
+      subscription.unsubscribe();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1257,7 +1342,6 @@ const AdminDashboard = () => {
   );
 
   const JobsView = () => {
-    const [dateFilter, setDateFilter] = useState('all'); // today, week, month, all
     const [statusFilter, setStatusFilter] = useState('all'); // all, assigned, in_progress, completed
     const [jobTypeFilter, setJobTypeFilter] = useState('all'); // all, recurring, one-time
 
@@ -1273,6 +1357,10 @@ const AdminDashboard = () => {
         switch (dateFilter) {
           case 'today':
             return jobDate.getTime() === today.getTime();
+          case 'tomorrow':
+            const dayAfterTomorrow = new Date(today);
+            dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
+            return jobDate >= today && jobDate < dayAfterTomorrow;
           case 'week':
             const weekFromNow = new Date(today);
             weekFromNow.setDate(weekFromNow.getDate() + 7);
@@ -1281,6 +1369,16 @@ const AdminDashboard = () => {
             const monthFromNow = new Date(today);
             monthFromNow.setMonth(monthFromNow.getMonth() + 1);
             return jobDate >= today && jobDate < monthFromNow;
+          case 'custom':
+            if (!startDate && !endDate) return true;
+            const start = startDate ? new Date(startDate) : null;
+            const end = endDate ? new Date(endDate) : null;
+            if (start) start.setHours(0, 0, 0, 0);
+            if (end) end.setHours(23, 59, 59, 999);
+            if (start && end) return jobDate >= start && jobDate <= end;
+            if (start) return jobDate >= start;
+            if (end) return jobDate <= end;
+            return true;
           case 'all':
           default:
             return true;
@@ -1517,8 +1615,10 @@ const AdminDashboard = () => {
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {[
                   { value: 'today', label: 'Today', icon: '📅' },
+                  { value: 'tomorrow', label: 'Today & Tomorrow', icon: '📆' },
                   { value: 'week', label: '7 Days', icon: '📆' },
                   { value: 'month', label: '30 Days', icon: '🗓️' },
+                  { value: 'custom', label: 'Custom', icon: '🔍' },
                   { value: 'all', label: 'All', icon: '∞' }
                 ].map(filter => (
                   <button
@@ -1540,6 +1640,29 @@ const AdminDashboard = () => {
                   </button>
                 ))}
               </div>
+              {/* Custom Date Range Picker */}
+              {dateFilter === 'custom' && (
+                <div style={{ display: 'flex', gap: '10px', marginTop: '10px', flexWrap: 'wrap' }}>
+                  <div>
+                    <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>From:</label>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      style={{ padding: '6px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '12px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>To:</label>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      style={{ padding: '6px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '12px' }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Status */}
@@ -1610,7 +1733,7 @@ const AdminDashboard = () => {
             <p style={{ fontSize: '14px', color: '#374151', margin: 0 }}>
               <strong>Showing {displayableJobs.length} jobs</strong>
               {deduplicateRecurring && filteredJobs.length > displayableJobs.length && ` (${filteredJobs.length - displayableJobs.length} duplicates hidden)`}
-              {dateFilter !== 'all' && ` • ${dateFilter === 'today' ? 'Today' : dateFilter === 'week' ? 'Next 7 days' : 'Next 30 days'}`}
+              {dateFilter !== 'all' && ` • ${dateFilter === 'today' ? 'Today' : dateFilter === 'tomorrow' ? 'Today & Tomorrow' : dateFilter === 'week' ? 'Next 7 days' : dateFilter === 'month' ? 'Next 30 days' : dateFilter === 'custom' ? `${startDate || 'Start'} to ${endDate || 'End'}` : ''}`}
               {statusFilter !== 'all' && ` • ${statusFilter}`}
               {jobTypeFilter === 'recurring' && ` • Recurring only`}
               {jobTypeFilter === 'one-time' && ` • One-time only`}
@@ -2739,17 +2862,83 @@ const AdminDashboard = () => {
             <h1 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0 }}>Golden Angel Snow Removal</h1>
             <p style={{ color: '#bfdbfe', marginTop: '2px', fontSize: '12px', margin: 0 }}>Admin Dashboard</p>
           </div>
-          <button
-            onClick={() => {
-              if (window.confirm('Are you sure you want to logout?')) {
-                localStorage.removeItem('adminAuth');
-                window.location.reload();
-              }
-            }}
-            style={{ padding: '8px 16px', background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}
-          >
-            Logout
-          </button>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            {/* Notification Bell */}
+            <div style={{ position: 'relative' }} data-notification-panel>
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '500', position: 'relative' }}
+              >
+                🔔
+                {completionNotifications.length > 0 && (
+                  <span style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#10b981', color: 'white', borderRadius: '10px', padding: '2px 6px', fontSize: '11px', fontWeight: 'bold', minWidth: '18px', textAlign: 'center' }}>
+                    {completionNotifications.length}
+                  </span>
+                )}
+              </button>
+
+              {/* Notification Dropdown */}
+              {showNotifications && (
+                <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '8px', background: 'white', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', width: '360px', maxHeight: '400px', overflowY: 'auto', zIndex: 100 }}>
+                  <div style={{ padding: '16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold', color: '#1f2937' }}>🎉 Completions</h3>
+                    {completionNotifications.length > 0 && (
+                      <button
+                        onClick={() => setCompletionNotifications([])}
+                        style={{ padding: '4px 8px', background: '#f3f4f6', color: '#6b7280', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}
+                      >
+                        Clear All
+                      </button>
+                    )}
+                  </div>
+
+                  {completionNotifications.length === 0 ? (
+                    <div style={{ padding: '32px', textAlign: 'center', color: '#9ca3af' }}>
+                      <p style={{ margin: 0, fontSize: '14px' }}>No completion notifications</p>
+                    </div>
+                  ) : (
+                    <div>
+                      {completionNotifications.map((notif, index) => (
+                        <div key={notif.id} style={{ padding: '16px', borderBottom: index < completionNotifications.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
+                            <div style={{ flex: 1 }}>
+                              <p style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>
+                                ✅ {notif.workerName}
+                              </p>
+                              <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#6b7280' }}>
+                                Completed all {notif.totalJobs} jobs
+                              </p>
+                              <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#9ca3af' }}>
+                                {notif.date} • {new Date(notif.timestamp).toLocaleTimeString()}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => setCompletionNotifications(prev => prev.filter(n => n.id !== notif.id))}
+                              style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '16px' }}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => {
+                if (window.confirm('Are you sure you want to logout?')) {
+                  localStorage.removeItem('adminAuth');
+                  window.location.reload();
+                }
+              }}
+              style={{ padding: '8px 16px', background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </div>
       <div style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', position: 'sticky', top: 0, zIndex: 10 }}>
@@ -2891,7 +3080,7 @@ const AdminDashboard = () => {
               )}
 
               <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '6px', marginBottom: '10px' }}>
-                <p style={{ marginBottom: '0px', fontSize: '13px', lineHeight: '1.2' }}><strong>Started At:</strong> {clientReportData.startedAt}</p>
+                <p style={{ marginBottom: '0px', fontSize: '13px', lineHeight: '1.2' }}><strong>✓ Completed:</strong> {clientReportData.completedDate}</p>
                 <p style={{ marginBottom: '0px', fontSize: '13px', lineHeight: '1.2' }}><strong>Notes:</strong> {clientReportData.notes}</p>
                 <p style={{ marginBottom: '0px', fontSize: '13px', lineHeight: '1.2', marginTop: '3px' }}><strong>Client:</strong> {clientReportData.clientName}</p>
                 <p style={{ marginBottom: '0px', fontSize: '13px', lineHeight: '1.2' }}><strong>Property:</strong> {clientReportData.propertyName}</p>
