@@ -245,31 +245,34 @@ const AdminDashboard = () => {
         // Reload jobs to get fresh data
         await loadJobs();
 
-        // Check if worker completed all their jobs
+        // Check if worker completed all their jobs FOR TODAY
         const workerId = payload.new.worker_id;
         const scheduledDate = payload.new.scheduled_date;
 
-        if (workerId && scheduledDate) {
-          // Get all jobs for this worker on this date
+        // Get today's date (YYYY-MM-DD format)
+        const today = new Date().toISOString().split('T')[0];
+
+        // Only trigger notification if the completed job is scheduled for today
+        if (workerId && scheduledDate === today) {
+          // Get all jobs for this worker scheduled for today
           const { data: workerJobs, error } = await supabase
             .from('jobs')
             .select('*, profiles!jobs_worker_id_fkey(full_name)')
             .eq('worker_id', workerId)
-            .gte('scheduled_date', scheduledDate)
-            .lt('scheduled_date', new Date(new Date(scheduledDate).getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+            .eq('scheduled_date', today);
 
           if (!error && workerJobs && workerJobs.length > 0) {
             const completedJobs = workerJobs.filter(j => j.status === 'completed');
             const percentage = Math.round((completedJobs.length / workerJobs.length) * 100);
 
-            // If 100% complete, show notification
+            // If 100% of today's jobs complete, show notification
             if (percentage === 100) {
               const workerName = workerJobs[0].profiles?.full_name || 'Worker';
               const notification = {
                 id: Date.now(),
                 workerId: workerId,
                 workerName: workerName,
-                date: scheduledDate,
+                date: today,
                 totalJobs: workerJobs.length,
                 timestamp: new Date().toISOString()
               };
@@ -278,8 +281,8 @@ const AdminDashboard = () => {
 
               // Show browser notification if permissions granted
               if (Notification.permission === 'granted') {
-                new Notification('🎉 Worker Completed All Jobs!', {
-                  body: `${workerName} finished all ${workerJobs.length} jobs for ${scheduledDate}`,
+                new Notification('🎉 Worker Completed All Jobs Today!', {
+                  body: `${workerName} finished all ${workerJobs.length} jobs for today`,
                   icon: '/favicon.ico'
                 });
               }
