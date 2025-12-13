@@ -2625,6 +2625,35 @@ const AdminDashboard = () => {
 
   const TimeTrackingView = () => {
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [autoRefresh, setAutoRefresh] = useState(false);
+
+    // Auto-refresh every 30 seconds when enabled
+    useEffect(() => {
+      if (!autoRefresh) return;
+
+      const interval = setInterval(() => {
+        console.log('🔄 Auto-refreshing data...');
+        loadAllData();
+      }, 30000); // 30 seconds
+
+      return () => clearInterval(interval);
+    }, [autoRefresh]);
+
+    // Calculate worker progress (% completion)
+    const workerProgress = workers.map(worker => {
+      const allWorkerJobs = jobs.filter(j => j.worker_id === worker.id && j.published);
+      const completedWorkerJobs = allWorkerJobs.filter(j => j.status === 'completed');
+      const percentage = allWorkerJobs.length > 0
+        ? Math.round((completedWorkerJobs.length / allWorkerJobs.length) * 100)
+        : 0;
+
+      return {
+        worker,
+        total: allWorkerJobs.length,
+        completed: completedWorkerJobs.length,
+        percentage
+      };
+    }).filter(w => w.total > 0).sort((a, b) => b.percentage - a.percentage);
 
     // Calculate worker time stats
     const completedJobs = jobs.filter(j => j.status === 'completed' && j.actual_duration_minutes);
@@ -2654,7 +2683,82 @@ const AdminDashboard = () => {
 
     return (
       <div style={{ padding: '16px' }}>
-        <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '16px' }}>⏱️ Time Tracking</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>⏱️ Time Tracking</h2>
+
+          {/* Auto-refresh toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'white', padding: '8px 12px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <span style={{ fontSize: '14px', color: '#6b7280' }}>Auto-refresh (30s)</span>
+            <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={autoRefresh}
+                onChange={(e) => setAutoRefresh(e.target.checked)}
+                style={{ opacity: 0, width: 0, height: 0 }}
+              />
+              <span style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: autoRefresh ? '#10b981' : '#d1d5db',
+                borderRadius: '24px',
+                transition: 'background-color 0.2s'
+              }}>
+                <span style={{
+                  position: 'absolute',
+                  content: '""',
+                  height: '18px',
+                  width: '18px',
+                  left: autoRefresh ? '23px' : '3px',
+                  bottom: '3px',
+                  backgroundColor: 'white',
+                  borderRadius: '50%',
+                  transition: 'left 0.2s'
+                }}></span>
+              </span>
+            </label>
+            {autoRefresh && <span style={{ fontSize: '12px', color: '#10b981' }}>●</span>}
+          </div>
+        </div>
+
+        {/* Worker Progress Section */}
+        <div style={{ marginBottom: '24px' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '12px' }}>📊 Worker Progress</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+            {workerProgress.map(({ worker, total, completed, percentage }) => (
+              <div key={worker.id} style={{ background: 'white', borderRadius: '8px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: percentage === 100 ? '2px solid #10b981' : 'none' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h4 style={{ fontSize: '16px', fontWeight: '600', margin: 0 }}>
+                    {worker.name}
+                    {percentage === 100 && <span style={{ marginLeft: '8px' }}>🎉</span>}
+                  </h4>
+                  <span style={{ fontSize: '20px', fontWeight: 'bold', color: percentage === 100 ? '#10b981' : '#2563eb' }}>
+                    {percentage}%
+                  </span>
+                </div>
+
+                {/* Progress bar */}
+                <div style={{ background: '#e5e7eb', borderRadius: '4px', height: '8px', marginBottom: '8px', overflow: 'hidden' }}>
+                  <div style={{
+                    background: percentage === 100 ? '#10b981' : percentage >= 75 ? '#3b82f6' : percentage >= 50 ? '#f59e0b' : '#6b7280',
+                    height: '100%',
+                    width: `${percentage}%`,
+                    transition: 'width 0.3s ease'
+                  }}></div>
+                </div>
+
+                <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>
+                  {completed} of {total} jobs completed
+                </p>
+              </div>
+            ))}
+            {workerProgress.length === 0 && (
+              <p style={{ color: '#6b7280', padding: '20px' }}>No jobs assigned to workers</p>
+            )}
+          </div>
+        </div>
 
         {/* Date selector */}
         <div style={{ marginBottom: '20px' }}>
