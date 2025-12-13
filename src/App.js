@@ -3802,6 +3802,7 @@ const AdminDashboard = () => {
 // Main App component with authentication
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     // Check if user is already logged in
@@ -3816,6 +3817,18 @@ const App = () => {
         localStorage.removeItem('adminAuth');
       }
     }
+
+    // Detect mobile device
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+      const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase());
+      const isSmallScreen = window.innerWidth < 768;
+      setIsMobile(isMobileDevice || isSmallScreen);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   const handleLogin = () => {
@@ -3829,6 +3842,43 @@ const App = () => {
 
   if (!isAuthenticated) {
     return <LoginPage onLogin={handleLogin} />;
+  }
+
+  // Mobile warning screen
+  if (isMobile) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: '20px' }}>
+        <div style={{ background: 'white', borderRadius: '16px', padding: '32px', maxWidth: '500px', width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', textAlign: 'center' }}>
+          <div style={{ fontSize: '64px', marginBottom: '16px' }}>💻</div>
+          <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '16px', color: '#1f2937' }}>Desktop Required</h1>
+          <p style={{ fontSize: '16px', color: '#6b7280', marginBottom: '24px', lineHeight: '1.6' }}>
+            The Golden Angel Admin Dashboard is designed for desktop computers and may not display properly on mobile devices.
+          </p>
+          <p style={{ fontSize: '16px', color: '#6b7280', marginBottom: '32px', lineHeight: '1.6' }}>
+            Please access this dashboard from a computer for the best experience.
+          </p>
+
+          <div style={{ background: '#f3f4f6', borderRadius: '8px', padding: '16px', marginBottom: '24px' }}>
+            <p style={{ fontSize: '14px', color: '#374151', marginBottom: '8px', fontWeight: '600' }}>📱 For mobile job management:</p>
+            <p style={{ fontSize: '14px', color: '#6b7280', margin: 0 }}>Workers should use the Golden Angel Worker mobile app</p>
+          </div>
+
+          <button
+            onClick={() => setIsMobile(false)}
+            style={{ width: '100%', padding: '14px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: '600', cursor: 'pointer', marginBottom: '12px' }}
+          >
+            Continue Anyway
+          </button>
+
+          <button
+            onClick={handleLogout}
+            style={{ width: '100%', padding: '14px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: '600', cursor: 'pointer' }}
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return <AdminDashboard onLogout={handleLogout} />;
