@@ -242,6 +242,8 @@ const AdminDashboard = () => {
         table: 'jobs',
         filter: 'status=eq.completed'
       }, async (payload) => {
+        console.log('🔔 Job completion detected:', payload.new);
+
         // Reload jobs to get fresh data
         await loadJobs();
 
@@ -251,9 +253,12 @@ const AdminDashboard = () => {
 
         // Get today's date (YYYY-MM-DD format)
         const today = new Date().toISOString().split('T')[0];
+        console.log('📅 Today:', today, '| Job scheduled for:', scheduledDate);
 
         // Only trigger notification if the completed job is scheduled for today
         if (workerId && scheduledDate === today) {
+          console.log('✅ Job is for today, checking all jobs for worker:', workerId);
+
           // Get all jobs for this worker scheduled for today
           const { data: workerJobs, error } = await supabase
             .from('jobs')
@@ -261,12 +266,16 @@ const AdminDashboard = () => {
             .eq('worker_id', workerId)
             .eq('scheduled_date', today);
 
+          console.log('📊 Worker jobs for today:', workerJobs?.length, '| Error:', error);
+
           if (!error && workerJobs && workerJobs.length > 0) {
             const completedJobs = workerJobs.filter(j => j.status === 'completed');
             const percentage = Math.round((completedJobs.length / workerJobs.length) * 100);
+            console.log('📈 Progress:', completedJobs.length, '/', workerJobs.length, '=', percentage + '%');
 
             // If 100% of today's jobs complete, show notification
             if (percentage === 100) {
+              console.log('🎉 100% COMPLETE! Showing notification...');
               const workerName = workerJobs[0].profiles?.full_name || 'Worker';
               const notification = {
                 id: Date.now(),
@@ -278,6 +287,7 @@ const AdminDashboard = () => {
               };
 
               setCompletionNotifications(prev => [notification, ...prev]);
+              console.log('✅ Notification added to list');
 
               // Show browser notification if permissions granted
               if (Notification.permission === 'granted') {
@@ -285,9 +295,14 @@ const AdminDashboard = () => {
                   body: `${workerName} finished all ${workerJobs.length} jobs for today`,
                   icon: '/favicon.ico'
                 });
+                console.log('🔔 Browser notification sent');
+              } else {
+                console.log('⚠️ Browser notification permission:', Notification.permission);
               }
             }
           }
+        } else {
+          console.log('⏭️ Skipping - job not for today or missing data');
         }
       })
       .subscribe();
