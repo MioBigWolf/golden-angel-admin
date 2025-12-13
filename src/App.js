@@ -247,33 +247,27 @@ const AdminDashboard = () => {
         // Reload jobs to get fresh data
         await loadJobs();
 
-        // Check if worker completed all their jobs FOR TODAY
+        // Check if worker completed ALL their assigned jobs
         const workerId = payload.new.worker_id;
-        const scheduledDate = payload.new.scheduled_date;
 
-        // Get today's date (YYYY-MM-DD format)
-        const today = new Date().toISOString().split('T')[0];
-        console.log('📅 Today:', today, '| Job scheduled for:', scheduledDate);
+        if (workerId) {
+          console.log('✅ Checking all jobs for worker:', workerId);
 
-        // Only trigger notification if the completed job is scheduled for today
-        if (workerId && scheduledDate === today) {
-          console.log('✅ Job is for today, checking all jobs for worker:', workerId);
-
-          // Get all jobs for this worker scheduled for today
+          // Get ALL jobs assigned to this worker (published jobs only)
           const { data: workerJobs, error } = await supabase
             .from('jobs')
             .select('*, profiles!jobs_worker_id_fkey(full_name)')
             .eq('worker_id', workerId)
-            .eq('scheduled_date', today);
+            .eq('published', true);
 
-          console.log('📊 Worker jobs for today:', workerJobs?.length, '| Error:', error);
+          console.log('📊 Total worker jobs:', workerJobs?.length, '| Error:', error);
 
           if (!error && workerJobs && workerJobs.length > 0) {
             const completedJobs = workerJobs.filter(j => j.status === 'completed');
             const percentage = Math.round((completedJobs.length / workerJobs.length) * 100);
             console.log('📈 Progress:', completedJobs.length, '/', workerJobs.length, '=', percentage + '%');
 
-            // If 100% of today's jobs complete, show notification
+            // If 100% of ALL jobs complete, show notification
             if (percentage === 100) {
               console.log('🎉 100% COMPLETE! Showing notification...');
               const workerName = workerJobs[0].profiles?.full_name || 'Worker';
@@ -281,7 +275,7 @@ const AdminDashboard = () => {
                 id: Date.now(),
                 workerId: workerId,
                 workerName: workerName,
-                date: today,
+                date: new Date().toISOString().split('T')[0],
                 totalJobs: workerJobs.length,
                 timestamp: new Date().toISOString()
               };
@@ -291,18 +285,20 @@ const AdminDashboard = () => {
 
               // Show browser notification if permissions granted
               if (Notification.permission === 'granted') {
-                new Notification('🎉 Worker Completed All Jobs Today!', {
-                  body: `${workerName} finished all ${workerJobs.length} jobs for today`,
+                new Notification('🎉 Worker Completed All Jobs!', {
+                  body: `${workerName} finished all ${workerJobs.length} assigned jobs - 100% complete!`,
                   icon: '/favicon.ico'
                 });
                 console.log('🔔 Browser notification sent');
               } else {
                 console.log('⚠️ Browser notification permission:', Notification.permission);
               }
+            } else {
+              console.log('⏳ Worker at ' + percentage + '% completion');
             }
           }
         } else {
-          console.log('⏭️ Skipping - job not for today or missing data');
+          console.log('⏭️ Skipping - no worker ID');
         }
       })
       .subscribe();
