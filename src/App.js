@@ -1358,7 +1358,7 @@ const AdminDashboard = () => {
   const JobsView = () => {
     const [statusFilter, setStatusFilter] = useState('all'); // all, assigned, in_progress, completed
     const [jobTypeFilter, setJobTypeFilter] = useState('all'); // all, recurring, one-time
-    const [autoRefresh, setAutoRefresh] = useState(false);
+    const [autoRefresh, setAutoRefresh] = useState(true);
 
     // Auto-refresh every 30 seconds when enabled
     useEffect(() => {
@@ -2126,7 +2126,7 @@ const AdminDashboard = () => {
   };
 
   const TodayJobsView = () => {
-    const [autoRefresh, setAutoRefresh] = useState(false);
+    const [autoRefresh, setAutoRefresh] = useState(true);
 
     // Auto-refresh every 30 seconds when enabled
     useEffect(() => {
@@ -2309,7 +2309,7 @@ const AdminDashboard = () => {
   const CompletedJobsView = () => {
     const [dateFilter, setDateFilter] = useState('all'); // today, week, month, all
     const [workerFilter, setWorkerFilter] = useState('all');
-    const [autoRefresh, setAutoRefresh] = useState(false);
+    const [autoRefresh, setAutoRefresh] = useState(true);
 
     // Auto-refresh every 30 seconds when enabled
     useEffect(() => {
@@ -2647,7 +2647,7 @@ const AdminDashboard = () => {
   };
 
   const PendingJobsView = () => {
-    const [autoRefresh, setAutoRefresh] = useState(false);
+    const [autoRefresh, setAutoRefresh] = useState(true);
 
     // Auto-refresh every 30 seconds when enabled
     useEffect(() => {
@@ -2727,7 +2727,7 @@ const AdminDashboard = () => {
 
   const TimeTrackingView = () => {
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-    const [autoRefresh, setAutoRefresh] = useState(false);
+    const [autoRefresh, setAutoRefresh] = useState(true);
 
     // Auto-refresh every 30 seconds when enabled
     useEffect(() => {
