@@ -1358,6 +1358,19 @@ const AdminDashboard = () => {
   const JobsView = () => {
     const [statusFilter, setStatusFilter] = useState('all'); // all, assigned, in_progress, completed
     const [jobTypeFilter, setJobTypeFilter] = useState('all'); // all, recurring, one-time
+    const [autoRefresh, setAutoRefresh] = useState(false);
+
+    // Auto-refresh every 30 seconds when enabled
+    useEffect(() => {
+      if (!autoRefresh) return;
+
+      const interval = setInterval(() => {
+        console.log('🔄 Auto-refreshing Jobs data...');
+        loadAllData();
+      }, 30000);
+
+      return () => clearInterval(interval);
+    }, [autoRefresh]);
 
     // Apply date filter
     const getDateFilteredJobs = () => {
@@ -1515,6 +1528,17 @@ const AdminDashboard = () => {
               <button onClick={() => setViewModes({...viewModes, jobs: 'list'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.jobs === 'list' ? 'white' : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.jobs === 'list' ? '#2563eb' : '#6b7280' }}>
                 <List size={14} /> List
               </button>
+            </div>
+            {/* Auto-refresh toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'white', padding: '6px 10px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+              <span style={{ fontSize: '12px', color: '#6b7280' }}>Auto-refresh</span>
+              <label style={{ position: 'relative', display: 'inline-block', width: '36px', height: '20px', cursor: 'pointer' }}>
+                <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
+                <span style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: autoRefresh ? '#10b981' : '#d1d5db', borderRadius: '20px', transition: 'background-color 0.2s' }}>
+                  <span style={{ position: 'absolute', content: '""', height: '14px', width: '14px', left: autoRefresh ? '19px' : '3px', bottom: '3px', backgroundColor: 'white', borderRadius: '50%', transition: 'left 0.2s' }}></span>
+                </span>
+              </label>
+              {autoRefresh && <span style={{ fontSize: '10px', color: '#10b981' }}>●</span>}
             </div>
             <button onClick={() => setShowJobModal(true)} style={{ background: '#ea580c', color: 'white', padding: '8px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: '500' }}>
               <Plus size={16} /> Assign
@@ -2102,6 +2126,20 @@ const AdminDashboard = () => {
   };
 
   const TodayJobsView = () => {
+    const [autoRefresh, setAutoRefresh] = useState(false);
+
+    // Auto-refresh every 30 seconds when enabled
+    useEffect(() => {
+      if (!autoRefresh) return;
+
+      const interval = setInterval(() => {
+        console.log('🔄 Auto-refreshing Today data...');
+        loadAllData();
+      }, 30000);
+
+      return () => clearInterval(interval);
+    }, [autoRefresh]);
+
     const todayJobs = jobs.filter(j => j.scheduled_date === new Date().toISOString().split('T')[0]);
     const filteredJobs = todayJobs.filter(j =>
       j.properties?.property_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -2112,6 +2150,17 @@ const AdminDashboard = () => {
       <div style={{ padding: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <h2 style={{ fontSize: '24px', fontWeight: 'bold' }}>Today's Jobs <span style={{ fontSize: '16px', color: '#6b7280', fontWeight: 'normal' }}>({filteredJobs.length})</span></h2>
+          {/* Auto-refresh toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'white', padding: '6px 10px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <span style={{ fontSize: '12px', color: '#6b7280' }}>Auto-refresh</span>
+            <label style={{ position: 'relative', display: 'inline-block', width: '36px', height: '20px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
+              <span style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: autoRefresh ? '#10b981' : '#d1d5db', borderRadius: '20px', transition: 'background-color 0.2s' }}>
+                <span style={{ position: 'absolute', content: '""', height: '14px', width: '14px', left: autoRefresh ? '19px' : '3px', bottom: '3px', backgroundColor: 'white', borderRadius: '50%', transition: 'left 0.2s' }}></span>
+              </span>
+            </label>
+            {autoRefresh && <span style={{ fontSize: '10px', color: '#10b981' }}>●</span>}
+          </div>
           <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: '6px', padding: '2px' }}>
             <button onClick={() => setViewModes({...viewModes, today: 'grid'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.today === 'grid' ? 'white' : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.today === 'grid' ? '#2563eb' : '#6b7280' }}>
               <Grid3x3 size={14} /> Grid
@@ -2260,6 +2309,19 @@ const AdminDashboard = () => {
   const CompletedJobsView = () => {
     const [dateFilter, setDateFilter] = useState('all'); // today, week, month, all
     const [workerFilter, setWorkerFilter] = useState('all');
+    const [autoRefresh, setAutoRefresh] = useState(false);
+
+    // Auto-refresh every 30 seconds when enabled
+    useEffect(() => {
+      if (!autoRefresh) return;
+
+      const interval = setInterval(() => {
+        console.log('🔄 Auto-refreshing Completed data...');
+        loadAllData();
+      }, 30000);
+
+      return () => clearInterval(interval);
+    }, [autoRefresh]);
 
     let completedJobs = jobs.filter(j => j.status === 'completed');
 
@@ -2299,13 +2361,26 @@ const AdminDashboard = () => {
       <div style={{ padding: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <h2 style={{ fontSize: '24px', fontWeight: 'bold' }}>Completed Jobs</h2>
-          <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: '6px', padding: '2px' }}>
-            <button onClick={() => setViewModes({...viewModes, completed: 'grid'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.completed === 'grid' ? 'white' : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.completed === 'grid' ? '#2563eb' : '#6b7280' }}>
-              <Grid3x3 size={14} /> Grid
-            </button>
-            <button onClick={() => setViewModes({...viewModes, completed: 'list'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.completed === 'list' ? 'white' : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.completed === 'list' ? '#2563eb' : '#6b7280' }}>
-              <List size={14} /> List
-            </button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {/* Auto-refresh toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'white', padding: '6px 10px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+              <span style={{ fontSize: '12px', color: '#6b7280' }}>Auto-refresh</span>
+              <label style={{ position: 'relative', display: 'inline-block', width: '36px', height: '20px', cursor: 'pointer' }}>
+                <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
+                <span style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: autoRefresh ? '#10b981' : '#d1d5db', borderRadius: '20px', transition: 'background-color 0.2s' }}>
+                  <span style={{ position: 'absolute', content: '""', height: '14px', width: '14px', left: autoRefresh ? '19px' : '3px', bottom: '3px', backgroundColor: 'white', borderRadius: '50%', transition: 'left 0.2s' }}></span>
+                </span>
+              </label>
+              {autoRefresh && <span style={{ fontSize: '10px', color: '#10b981' }}>●</span>}
+            </div>
+            <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: '6px', padding: '2px' }}>
+              <button onClick={() => setViewModes({...viewModes, completed: 'grid'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.completed === 'grid' ? 'white' : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.completed === 'grid' ? '#2563eb' : '#6b7280' }}>
+                <Grid3x3 size={14} /> Grid
+              </button>
+              <button onClick={() => setViewModes({...viewModes, completed: 'list'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.completed === 'list' ? 'white' : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.completed === 'list' ? '#2563eb' : '#6b7280' }}>
+                <List size={14} /> List
+              </button>
+            </div>
           </div>
         </div>
         <div style={{ marginBottom: '12px' }}><SearchBar value={searchTerm} onChange={handleSearchChange} /></div>
@@ -2572,18 +2647,45 @@ const AdminDashboard = () => {
   };
 
   const PendingJobsView = () => {
+    const [autoRefresh, setAutoRefresh] = useState(false);
+
+    // Auto-refresh every 30 seconds when enabled
+    useEffect(() => {
+      if (!autoRefresh) return;
+
+      const interval = setInterval(() => {
+        console.log('🔄 Auto-refreshing Pending data...');
+        loadAllData();
+      }, 30000);
+
+      return () => clearInterval(interval);
+    }, [autoRefresh]);
+
     const pendingJobs = jobs.filter(j => j.status === 'assigned');
     return (
       <div style={{ padding: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <h2 style={{ fontSize: '24px', fontWeight: 'bold' }}>Pending Jobs</h2>
-          <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: '6px', padding: '2px' }}>
-            <button onClick={() => setViewModes({...viewModes, pending: 'grid'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.pending === 'grid' ? 'white' : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.pending === 'grid' ? '#2563eb' : '#6b7280' }}>
-              <Grid3x3 size={14} /> Grid
-            </button>
-            <button onClick={() => setViewModes({...viewModes, pending: 'list'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.pending === 'list' ? 'white' : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.pending === 'list' ? '#2563eb' : '#6b7280' }}>
-              <List size={14} /> List
-            </button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {/* Auto-refresh toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'white', padding: '6px 10px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+              <span style={{ fontSize: '12px', color: '#6b7280' }}>Auto-refresh</span>
+              <label style={{ position: 'relative', display: 'inline-block', width: '36px', height: '20px', cursor: 'pointer' }}>
+                <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
+                <span style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: autoRefresh ? '#10b981' : '#d1d5db', borderRadius: '20px', transition: 'background-color 0.2s' }}>
+                  <span style={{ position: 'absolute', content: '""', height: '14px', width: '14px', left: autoRefresh ? '19px' : '3px', bottom: '3px', backgroundColor: 'white', borderRadius: '50%', transition: 'left 0.2s' }}></span>
+                </span>
+              </label>
+              {autoRefresh && <span style={{ fontSize: '10px', color: '#10b981' }}>●</span>}
+            </div>
+            <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: '6px', padding: '2px' }}>
+              <button onClick={() => setViewModes({...viewModes, pending: 'grid'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.pending === 'grid' ? 'white' : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.pending === 'grid' ? '#2563eb' : '#6b7280' }}>
+                <Grid3x3 size={14} /> Grid
+              </button>
+              <button onClick={() => setViewModes({...viewModes, pending: 'list'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.pending === 'list' ? 'white' : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.pending === 'list' ? '#2563eb' : '#6b7280' }}>
+                <List size={14} /> List
+              </button>
+            </div>
           </div>
         </div>
         <div style={{ marginBottom: '12px' }}><SearchBar value={searchTerm} onChange={handleSearchChange} /></div>
