@@ -1,11 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Users, Home, Calendar, Plus, Trash2, CheckCircle, Clock, Upload, X, Edit, Search, Grid3x3, List } from 'lucide-react';
+import { Users, Home, Calendar, Plus, Trash2, CheckCircle, Clock, Upload, X, Edit, Search, Grid3x3, List, Pencil, MapPin, Map as MapIcon } from 'lucide-react';
 import { supabase } from './supabaseClient';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import L from 'leaflet';
 
 const DEFAULT_CHECKLIST_TEMPLATES = [
   'City sidewalk', 'Driveway', 'Front steps', 'Back deck',
   'Walkway to door', 'Garage entrance', 'Porch', 'Parking area'
 ];
+
+// Fix Leaflet marker icons
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
 
 // Login Component
 const LoginPage = ({ onLogin }) => {
@@ -56,7 +66,7 @@ const LoginPage = ({ onLogin }) => {
 
         <form onSubmit={handleLogin}>
           <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>Username</label>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#111827', marginBottom: '8px' }}>Username</label>
             <input
               type="text"
               value={username}
@@ -68,7 +78,7 @@ const LoginPage = ({ onLogin }) => {
           </div>
 
           <div style={{ marginBottom: '24px' }}>
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>Password</label>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#111827', marginBottom: '8px' }}>Password</label>
             <input
               type="password"
               value={password}
@@ -103,7 +113,7 @@ const LoginPage = ({ onLogin }) => {
 };
 
 // SearchBar component - fixed version based on working SearchableDropdown pattern
-const SearchBar = React.memo(({ value, onChange }) => {
+const SearchBar = React.memo(({ value, onChange, theme }) => {
   const inputRef = React.useRef(null);
 
   const handleChange = (e) => {
@@ -111,8 +121,8 @@ const SearchBar = React.memo(({ value, onChange }) => {
   };
 
   return (
-    <div style={{ position: 'relative', marginBottom: '20px' }}>
-      <Search size={20} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#6b7280' }} />
+    <div style={{ position: 'relative', marginBottom: '12px' }}>
+      <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: theme.textSecondary }} />
       <input
         ref={inputRef}
         type="text"
@@ -123,7 +133,7 @@ const SearchBar = React.memo(({ value, onChange }) => {
         autoCorrect="off"
         autoCapitalize="off"
         spellCheck="false"
-        style={{ width: '100%', padding: '12px 12px 12px 45px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '16px' }}
+        style={{ width: '100%', padding: '8px 10px 8px 35px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}
       />
     </div>
   );
@@ -131,13 +141,20 @@ const SearchBar = React.memo(({ value, onChange }) => {
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [othersSubTab, setOthersSubTab] = useState('today');
   const [workers, setWorkers] = useState([]);
   const [clients, setClients] = useState([]);
   const [properties, setProperties] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [issues, setIssues] = useState([]);
   const [loading, setLoading] = useState(false);
-  
+  const [loadingMessage, setLoadingMessage] = useState('');
+  const [loadingProgress, setLoadingProgress] = useState(0);
+
+  const [darkTheme, setDarkTheme] = useState(true);
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({ title: '', message: '', type: 'info', onConfirm: null });
+
   const [showWorkerModal, setShowWorkerModal] = useState(false);
   const [showClientModal, setShowClientModal] = useState(false);
   const [showBulkClientModal, setShowBulkClientModal] = useState(false);
@@ -152,7 +169,7 @@ const AdminDashboard = () => {
   const [clientForm, setClientForm] = useState({ name: '', email: '', phone: '' });
   const [propertyForm, setPropertyForm] = useState({
     client_id: '', property_name: '', address: '', latitude: '', longitude: '',
-    highlight_photos: [], special_notes: '', checklist: []
+    highlight_photos: [], special_notes: '', checklist: [], property_group: ''
   });
   const [jobForm, setJobForm] = useState({
     property_id: '',
@@ -204,6 +221,22 @@ const AdminDashboard = () => {
   const [newTemplate, setNewTemplate] = useState('');
   const [completionNotifications, setCompletionNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
+
+  // Bulk import client+property state
+  const [showBulkImportModal, setShowBulkImportModal] = useState(false);
+  const [bulkImportText, setBulkImportText] = useState('');
+  const [bulkImportPreview, setBulkImportPreview] = useState(null);
+  const [bulkImportProcessing, setBulkImportProcessing] = useState(false);
+
+  // Property grouping state
+  const [propertyGroups, setPropertyGroups] = useState([]);
+  const [selectedGroup, setSelectedGroup] = useState('all');
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [editingGroup, setEditingGroup] = useState(null);
+  const [groupForm, setGroupForm] = useState({ name: '', selectedPropertyIds: [] });
+  const [proximitySuggestions, setProximitySuggestions] = useState([]);
+  const [proximityRadius, setProximityRadius] = useState(5);
+  const [quickSelectGroup, setQuickSelectGroup] = useState('');
 
   // Stable onChange handler for SearchBar to prevent re-renders
   const handleSearchChange = useCallback((e) => {
@@ -314,10 +347,25 @@ const AdminDashboard = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Custom Alert Functions
+  const showCustomAlert = (title, message, type = 'info') => {
+    setAlertConfig({ title, message, type, onConfirm: null });
+    setShowAlert(true);
+  };
+
+  const showCustomConfirm = (title, message, onConfirm) => {
+    setAlertConfig({ title, message, type: 'confirm', onConfirm });
+    setShowAlert(true);
+  };
+
   const loadAllData = async () => {
     setLoading(true);
+    setLoadingMessage('Loading data...');
+    setLoadingProgress(0);
     await Promise.all([loadWorkers(), loadClients(), loadProperties(), loadJobs(), loadIssues()]);
     setLoading(false);
+    setLoadingMessage('');
+    setLoadingProgress(0);
   };
 
   const loadWorkers = async () => {
@@ -336,7 +384,16 @@ const AdminDashboard = () => {
 
   const loadProperties = async () => {
     const { data, error } = await supabase.from('properties').select('*, clients(name)').order('created_at', { ascending: false });
-    if (!error) setProperties(data || []);
+    if (!error) {
+      setProperties(data || []);
+      // Extract unique groups from loaded properties
+      const uniqueGroups = [...new Set(
+        (data || [])
+          .filter(p => p.property_group)
+          .map(p => p.property_group)
+      )];
+      setPropertyGroups(uniqueGroups.sort());
+    }
   };
 
   const loadJobs = async () => {
@@ -390,6 +447,9 @@ const AdminDashboard = () => {
       return;
     }
 
+    setLoading(true);
+    setLoadingMessage(editingItem ? 'Updating worker...' : 'Creating worker...');
+
     if (editingItem) {
       // Update existing worker using RPC function (bypasses RLS)
       const { error } = await supabase.rpc('update_worker_profile', {
@@ -400,15 +460,15 @@ const AdminDashboard = () => {
       });
 
       if (!error) {
-        alert('Worker updated successfully!');
+        showCustomAlert('Success!', 'Worker updated successfully!', 'success');
         setEditingItem(null);
       } else {
-        alert('Error updating worker: ' + error.message);
+        showCustomAlert('Error', 'Error updating worker: ' + error.message, 'error');
       }
     } else {
       // Create new worker - requires password
       if (!workerForm.password || workerForm.password.length < 6) {
-        alert('Please provide a password (minimum 6 characters)');
+        showCustomAlert('Validation Error', 'Please provide a password (minimum 6 characters)', 'warning');
         return;
       }
 
@@ -448,7 +508,10 @@ const AdminDashboard = () => {
 
     setShowWorkerModal(false);
     setWorkerForm({ name: '', email: '', phone: '', password: '' });
-    loadWorkers();
+    await loadWorkers();
+
+    setLoading(false);
+    setLoadingMessage('');
   };
 
   const addOrUpdateClient = async () => {
@@ -456,6 +519,9 @@ const AdminDashboard = () => {
       alert('Please fill in client name');
       return;
     }
+
+    setLoading(true);
+    setLoadingMessage(editingItem ? 'Updating client...' : 'Creating client...');
     
     if (editingItem) {
       const { error } = await supabase.from('clients').update(clientForm).eq('id', editingItem.id);
@@ -476,7 +542,10 @@ const AdminDashboard = () => {
     
     setShowClientModal(false);
     setClientForm({ name: '', email: '', phone: '' });
-    loadClients();
+    await loadClients();
+
+    setLoading(false);
+    setLoadingMessage('');
   };
 
   const bulkImportClients = async () => {
@@ -519,6 +588,451 @@ const AdminDashboard = () => {
       loadClients();
     } else {
       alert('Error adding clients: ' + error.message);
+    }
+  };
+
+  const parseBulkImport = (csvText) => {
+    const lines = csvText.trim().split('\n').filter(line => line.trim());
+
+    if (lines.length === 0) {
+      return { clients: [], properties: [], errors: ['CSV is empty'] };
+    }
+
+    // Skip header if present (check if first line contains common header keywords)
+    const firstLine = lines[0].toLowerCase();
+    const startIndex = (firstLine.includes('client') || firstLine.includes('name') || firstLine.includes('address')) ? 1 : 0;
+
+    const clientMap = new Map(); // key: "name|email", value: client object
+    const propertiesData = [];
+    const errors = [];
+
+    lines.slice(startIndex).forEach((line, index) => {
+      // Handle quoted CSVs (split by comma but not inside quotes)
+      const parts = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(p => p.trim().replace(/^"|"$/g, ''));
+
+      if (parts.length < 4) {
+        errors.push(`Line ${index + startIndex + 1}: Missing required fields (need at least: Client Name, Email, Phone, Address)`);
+        return;
+      }
+
+      // Simplified CSV format: Client Name, Email, Phone, Address, Special Notes (optional), Checklist Items (optional)
+      const [clientName, email, phone, address, specialNotes = '', checklistStr = ''] = parts;
+
+      if (!clientName || !address) {
+        errors.push(`Line ${index + startIndex + 1}: Client name and address are required`);
+        return;
+      }
+
+      // Group by client (use name+email as unique key)
+      const clientKey = `${clientName.toLowerCase()}|${(email || '').toLowerCase()}`;
+
+      if (!clientMap.has(clientKey)) {
+        clientMap.set(clientKey, {
+          name: clientName,
+          email: email || '',
+          phone: phone || '',
+          tempId: `temp_${Date.now()}_${clientMap.size}` // Temporary ID for grouping
+        });
+      }
+
+      // Parse checklist items (comma or semicolon separated) - OPTIONAL, can be empty
+      const checklistItems = checklistStr
+        ? checklistStr.split(/[,;]/).map(s => s.trim()).filter(s => s)
+        : [checklistTemplates[0] || 'Driveway']; // Default to first template item if none provided
+
+      propertiesData.push({
+        clientKey,
+        clientName,
+        address,
+        specialNotes: specialNotes || '',
+        checklistItems,
+        rowNumber: index + startIndex + 1,
+        needsGeocoding: true // Flag to geocode this address
+      });
+    });
+
+    return {
+      clients: Array.from(clientMap.values()),
+      properties: propertiesData,
+      errors
+    };
+  };
+
+  const executeBulkImport = async () => {
+    if (!bulkImportPreview || bulkImportPreview.errors.length > 0) {
+      alert('Please fix errors before importing');
+      return;
+    }
+
+    setBulkImportProcessing(true);
+
+    try {
+      // Step 1: Create all unique clients
+      const clientsToCreate = bulkImportPreview.clients.map(c => ({
+        name: c.name,
+        email: c.email,
+        phone: c.phone
+      }));
+
+      const { data: createdClients, error: clientError } = await supabase
+        .from('clients')
+        .insert(clientsToCreate)
+        .select();
+
+      if (clientError) {
+        throw new Error(`Client creation failed: ${clientError.message}`);
+      }
+
+      // Step 2: Map temp IDs to real client IDs
+      const clientIdMap = new Map();
+      bulkImportPreview.clients.forEach((tempClient, idx) => {
+        const clientKey = `${tempClient.name.toLowerCase()}|${tempClient.email.toLowerCase()}`;
+        clientIdMap.set(clientKey, createdClients[idx].id);
+      });
+
+      // Step 2.5: Geocode all addresses automatically (in background)
+      const geocodedProperties = await Promise.all(
+        bulkImportPreview.properties.map(async (prop) => {
+          let latitude = null;
+          let longitude = null;
+
+          if (prop.needsGeocoding) {
+            try {
+              const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(prop.address)}`;
+              const response = await fetch(url);
+              const data = await response.json();
+
+              if (data && data.length > 0) {
+                latitude = parseFloat(data[0].lat);
+                longitude = parseFloat(data[0].lon);
+              }
+            } catch (geocodeError) {
+              // If geocoding fails, just continue without coordinates
+              console.warn(`Geocoding failed for ${prop.address}:`, geocodeError);
+            }
+          }
+
+          return { ...prop, latitude, longitude };
+        })
+      );
+
+      // Step 3: Create properties
+      const propertiesToCreate = geocodedProperties.map(prop => {
+        const clientId = clientIdMap.get(prop.clientKey);
+        const checklistData = prop.checklistItems.map(item => ({ item, checked: false }));
+        const propertyName = prop.address.split(',')[0].trim(); // Use first part of address as name
+
+        return {
+          client_id: clientId,
+          name: propertyName,
+          property_name: propertyName,
+          address: prop.address,
+          latitude: prop.latitude,
+          longitude: prop.longitude,
+          highlight_photo_url: null, // Will be updated later if photos added
+          photo_urls: JSON.stringify([]),
+          special_notes: prop.specialNotes || null,
+          checklist: JSON.stringify(checklistData)
+        };
+      });
+
+      const { data: createdProperties, error: propertyError } = await supabase
+        .from('properties')
+        .insert(propertiesToCreate)
+        .select();
+
+      if (propertyError) {
+        // Rollback: Delete created clients
+        await supabase.from('clients').delete().in('id', createdClients.map(c => c.id));
+        throw new Error(`Property creation failed: ${propertyError.message}`);
+      }
+
+      // Success!
+      alert(`Successfully imported:\n- ${createdClients.length} clients\n- ${createdProperties.length} properties\n\nAddresses automatically geocoded for map locations.`);
+
+      // Reset state and reload data
+      setShowBulkImportModal(false);
+      setBulkImportText('');
+      setBulkImportPreview(null);
+      loadClients();
+      loadProperties();
+
+    } catch (error) {
+      alert(`Import failed: ${error.message}`);
+    } finally {
+      setBulkImportProcessing(false);
+    }
+  };
+
+  // Geocoding Helper Function for Automatic Geocoding
+  /**
+   * Geocode an address to get latitude and longitude (silent, no alerts)
+   * @param {string} address - The address to geocode
+   * @returns {Promise<{lat: number, lon: number} | null>} Coordinates or null if failed
+   */
+  const getCoordinatesFromAddress = async (address) => {
+    if (!address || !address.trim()) {
+      return null;
+    }
+
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data && data.length > 0) {
+        return {
+          lat: parseFloat(data[0].lat),
+          lon: parseFloat(data[0].lon)
+        };
+      }
+      return null;
+    } catch (error) {
+      console.warn(`Geocoding failed for ${address}:`, error);
+      return null;
+    }
+  };
+
+  /**
+   * Batch geocode all properties missing coordinates
+   */
+  const geocodeAllProperties = async () => {
+    const propertiesWithoutCoords = properties.filter(p => !p.latitude || !p.longitude);
+
+    if (propertiesWithoutCoords.length === 0) {
+      alert('All properties already have coordinates!');
+      return;
+    }
+
+    if (!window.confirm(`Geocode ${propertiesWithoutCoords.length} properties without coordinates?\n\nThis will automatically get latitude/longitude for:\n${propertiesWithoutCoords.slice(0, 5).map(p => '• ' + p.property_name).join('\n')}${propertiesWithoutCoords.length > 5 ? '\n...and ' + (propertiesWithoutCoords.length - 5) + ' more' : ''}`)) {
+      return;
+    }
+
+    setLoading(true);
+    setLoadingMessage('Geocoding properties...');
+    setLoadingProgress(0);
+
+    let successCount = 0;
+    let failCount = 0;
+    const total = propertiesWithoutCoords.length;
+
+    for (let i = 0; i < propertiesWithoutCoords.length; i++) {
+      const property = propertiesWithoutCoords[i];
+      const progress = Math.round(((i + 1) / total) * 100);
+      setLoadingProgress(progress);
+      setLoadingMessage(`Geocoding ${i + 1} of ${total}: ${property.property_name}`);
+
+      const coords = await getCoordinatesFromAddress(property.address);
+
+      if (coords) {
+        const { error } = await supabase
+          .from('properties')
+          .update({ latitude: coords.lat, longitude: coords.lon })
+          .eq('id', property.id);
+
+        if (!error) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } else {
+        failCount++;
+      }
+
+      // Add a small delay to respect API rate limits
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    setLoading(false);
+    setLoadingMessage('');
+    setLoadingProgress(0);
+
+    showCustomAlert(
+      'Geocoding Complete!',
+      `✅ Successfully geocoded: ${successCount}\n❌ Failed: ${failCount}`,
+      successCount > 0 && failCount === 0 ? 'success' : failCount > 0 && successCount > 0 ? 'warning' : 'error'
+    );
+    loadProperties();
+  };
+
+  // Property Grouping Functions
+
+  /**
+   * Calculate distance between two coordinates using Haversine formula
+   * @returns {number} Distance in kilometers
+   */
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Earth's radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  /**
+   * Find nearby properties based on selected properties in group
+   * @param {Array<string>} selectedPropertyIds - IDs of properties already in group
+   * @param {number} radiusKm - Search radius in kilometers
+   * @returns {Array} Array of {property, distance} sorted by distance
+   */
+  const findNearbyProperties = (selectedPropertyIds, radiusKm = 5) => {
+    const selectedProps = properties.filter(p =>
+      selectedPropertyIds.includes(p.id) &&
+      p.latitude &&
+      p.longitude
+    );
+    const availableProps = properties.filter(p =>
+      !selectedPropertyIds.includes(p.id) &&
+      p.latitude &&
+      p.longitude
+    );
+
+    if (selectedProps.length === 0 || availableProps.length === 0) {
+      return [];
+    }
+
+    // Calculate centroid of selected properties (only those with coordinates)
+    const centroidLat = selectedProps.reduce((sum, p) =>
+      sum + parseFloat(p.latitude), 0) / selectedProps.length;
+    const centroidLon = selectedProps.reduce((sum, p) =>
+      sum + parseFloat(p.longitude), 0) / selectedProps.length;
+
+    // Calculate distances and filter by radius
+    const suggestions = availableProps
+      .map(property => ({
+        property,
+        distance: calculateDistance(
+          centroidLat,
+          centroidLon,
+          parseFloat(property.latitude),
+          parseFloat(property.longitude)
+        )
+      }))
+      .filter(item => item.distance <= radiusKm)
+      .sort((a, b) => a.distance - b.distance);
+
+    return suggestions;
+  };
+
+  /**
+   * Handle property selection in group modal - triggers proximity suggestions
+   */
+  const handlePropertySelectionInGroup = (propertyId, isSelected) => {
+    let updatedIds;
+    if (isSelected) {
+      updatedIds = [...groupForm.selectedPropertyIds, propertyId];
+    } else {
+      updatedIds = groupForm.selectedPropertyIds.filter(id => id !== propertyId);
+    }
+
+    setGroupForm({ ...groupForm, selectedPropertyIds: updatedIds });
+
+    // Update proximity suggestions
+    if (updatedIds.length > 0) {
+      const suggestions = findNearbyProperties(updatedIds, proximityRadius);
+      setProximitySuggestions(suggestions);
+    } else {
+      setProximitySuggestions([]);
+    }
+  };
+
+  /**
+   * Save property group (create or update)
+   */
+  const savePropertyGroup = async () => {
+    if (!groupForm.name.trim()) {
+      alert('Please enter a group name');
+      return;
+    }
+
+    if (groupForm.selectedPropertyIds.length === 0) {
+      alert('Please select at least one property for this group');
+      return;
+    }
+
+    const groupName = groupForm.name.trim();
+    if (groupName.length > 100) {
+      alert('Group name must be 100 characters or less');
+      return;
+    }
+
+    // If editing (renaming), first ungroup old properties
+    if (editingGroup) {
+      const { error: ungroupError } = await supabase
+        .from('properties')
+        .update({ property_group: null })
+        .eq('property_group', editingGroup);
+
+      if (ungroupError) {
+        alert('Error updating group: ' + ungroupError.message);
+        return;
+      }
+    }
+
+    // Assign selected properties to the group
+    const { error } = await supabase
+      .from('properties')
+      .update({ property_group: groupName })
+      .in('id', groupForm.selectedPropertyIds);
+
+    if (!error) {
+      alert(`Group "${groupName}" ${editingGroup ? 'updated' : 'created'} successfully!`);
+      setShowGroupModal(false);
+      setEditingGroup(null);
+      setGroupForm({ name: '', selectedPropertyIds: [] });
+      setProximitySuggestions([]);
+      loadProperties();
+    } else {
+      alert('Error saving group: ' + error.message);
+    }
+  };
+
+  /**
+   * Delete a group (ungroup all properties in it)
+   */
+  const deleteGroup = async (groupName) => {
+    if (!window.confirm(`Delete group "${groupName}"? Properties will be ungrouped.`)) {
+      return;
+    }
+
+    const { error } = await supabase
+      .from('properties')
+      .update({ property_group: null })
+      .eq('property_group', groupName);
+
+    if (!error) {
+      alert(`Group "${groupName}" deleted. Properties are now ungrouped.`);
+      setSelectedGroup('all');
+      loadProperties();
+    } else {
+      alert('Error deleting group: ' + error.message);
+    }
+  };
+
+  /**
+   * Handle group quick select in job modal
+   */
+  const handleQuickSelectGroup = (groupSelection) => {
+    setQuickSelectGroup(groupSelection);
+
+    if (groupSelection === 'all') {
+      setSelectedProperties(properties.map(p => p.id));
+    } else if (groupSelection === 'ungrouped') {
+      const ungroupedIds = properties
+        .filter(p => !p.property_group)
+        .map(p => p.id);
+      setSelectedProperties(ungroupedIds);
+    } else if (groupSelection === '') {
+      setSelectedProperties([]);
+    } else {
+      const groupPropertyIds = properties
+        .filter(p => p.property_group === groupSelection)
+        .map(p => p.id);
+      setSelectedProperties(groupPropertyIds);
     }
   };
 
@@ -771,29 +1285,45 @@ const AdminDashboard = () => {
       alert('Please fill in all required fields (Client and Address)');
       return;
     }
-    
+
     if (selectedChecklistItems.length === 0) {
       alert('Please select at least one service from the checklist');
       return;
     }
-    
+
     if (propertyForm.highlight_photos.length === 0) {
       alert('Please upload at least one property photo');
       return;
     }
-    
+
+    // Auto-geocode the address if coordinates are missing or address has changed
+    let latitude = propertyForm.latitude || null;
+    let longitude = propertyForm.longitude || null;
+
+    // Check if we need to geocode (new property or address changed)
+    const needsGeocoding = !editingItem || (editingItem && editingItem.address !== propertyForm.address);
+
+    if (needsGeocoding && (!latitude || !longitude)) {
+      const coords = await getCoordinatesFromAddress(propertyForm.address);
+      if (coords) {
+        latitude = coords.lat;
+        longitude = coords.lon;
+      }
+    }
+
     const checklistData = selectedChecklistItems.map(item => ({ item, checked: false }));
     const propertyData = {
       client_id: propertyForm.client_id,
       name: propertyForm.property_name,
       property_name: propertyForm.property_name,
       address: propertyForm.address,
-      latitude: propertyForm.latitude || null,
-      longitude: propertyForm.longitude || null,
+      latitude: latitude,
+      longitude: longitude,
       highlight_photo_url: propertyForm.highlight_photos[0],
       photo_urls: JSON.stringify(propertyForm.highlight_photos),
       special_notes: propertyForm.special_notes || null,
-      checklist: JSON.stringify(checklistData)
+      checklist: JSON.stringify(checklistData),
+      property_group: propertyForm.property_group || null
     };
     
     if (editingItem) {
@@ -814,7 +1344,7 @@ const AdminDashboard = () => {
     }
     
     setShowPropertyModal(false);
-    setPropertyForm({ client_id: '', property_name: '', address: '', latitude: '', longitude: '', highlight_photos: [], special_notes: '', checklist: [] });
+    setPropertyForm({ client_id: '', property_name: '', address: '', latitude: '', longitude: '', highlight_photos: [], special_notes: '', checklist: [], property_group: '' });
     setSelectedChecklistItems([]);
     loadProperties();
   };
@@ -980,12 +1510,49 @@ const AdminDashboard = () => {
 
   const filteredWorkers = workers.filter(w => w.name.toLowerCase().includes(searchTerm.toLowerCase()) || w.email.toLowerCase().includes(searchTerm.toLowerCase()));
   const filteredClients = clients.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()));
-  const filteredProperties = properties.filter(p => p.property_name.toLowerCase().includes(searchTerm.toLowerCase()) || p.address.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredProperties = properties.filter(p => {
+    const matchesSearch = p.property_name.toLowerCase().includes(searchTerm.toLowerCase()) || p.address.toLowerCase().includes(searchTerm.toLowerCase());
+    let matchesGroup = true;
+    if (selectedGroup === 'ungrouped') {
+      matchesGroup = !p.property_group;
+    } else if (selectedGroup !== 'all') {
+      matchesGroup = p.property_group === selectedGroup;
+    }
+    return matchesSearch && matchesGroup;
+  });
 
 
-  const DashboardView = () => (
-    <div style={{ padding: '20px' }}>
-      <h2 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '20px' }}>Dashboard Overview</h2>
+  const DashboardView = () => {
+    const [autoRefresh, setAutoRefresh] = useState(true);
+
+    // Auto-refresh every 30 seconds when enabled
+    useEffect(() => {
+      if (!autoRefresh) return;
+
+      const interval = setInterval(() => {
+        console.log('🔄 Auto-refreshing Dashboard data...');
+        loadAllData();
+      }, 30000);
+
+      return () => clearInterval(interval);
+    }, [autoRefresh]);
+
+    return (
+      <div style={{ padding: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h2 style={{ fontSize: '28px', fontWeight: 'bold', margin: 0, color: theme.text }}>Dashboard Overview</h2>
+          {/* Auto-refresh toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: theme.cardBg, padding: '6px 10px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: `1px solid ${theme.border}` }}>
+            <span style={{ fontSize: '12px', color: theme.textSecondary }}>Auto-refresh</span>
+            <label style={{ position: 'relative', display: 'inline-block', width: '36px', height: '20px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
+              <span style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: autoRefresh ? '#10b981' : '#d1d5db', borderRadius: '20px', transition: 'background-color 0.2s' }}>
+                <span style={{ position: 'absolute', content: '""', height: '14px', width: '14px', left: autoRefresh ? '19px' : '3px', bottom: '3px', backgroundColor: 'white', borderRadius: '50%', transition: 'left 0.2s' }}></span>
+              </span>
+            </label>
+            {autoRefresh && <span style={{ fontSize: '10px', color: '#10b981' }}>●</span>}
+          </div>
+        </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
         <div onClick={() => setActiveTab('workers')} style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'transform 0.2s', color: 'white' }}>
           <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px', opacity: 0.9 }}>👷 Workers Management</h3>
@@ -1017,19 +1584,19 @@ const AdminDashboard = () => {
           <p style={{ fontSize: '14px', opacity: 0.8, marginTop: '5px' }}>today</p>
         </div>
 
-        <div onClick={() => setActiveTab('completed')} style={{ background: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'transform 0.2s', color: '#1f2937' }}>
+        <div onClick={() => setActiveTab('completed')} style={{ background: darkTheme ? theme.cardBg : 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'transform 0.2s', color: theme.text, border: darkTheme ? `1px solid ${theme.border}` : 'none' }}>
           <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px', opacity: 0.9 }}>✅ Completed Jobs</h3>
           <p style={{ fontSize: '36px', fontWeight: 'bold' }}>{jobs.filter(j => j.status === 'completed').length}</p>
           <p style={{ fontSize: '14px', opacity: 0.7, marginTop: '5px' }}>completed</p>
         </div>
 
-        <div onClick={() => setActiveTab('pending')} style={{ background: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'transform 0.2s', color: '#1f2937' }}>
+        <div onClick={() => setActiveTab('pending')} style={{ background: darkTheme ? theme.cardBg : 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'transform 0.2s', color: theme.text, border: darkTheme ? `1px solid ${theme.border}` : 'none' }}>
           <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px', opacity: 0.9 }}>⏳ Pending Jobs</h3>
           <p style={{ fontSize: '36px', fontWeight: 'bold' }}>{jobs.filter(j => j.status === 'assigned').length}</p>
           <p style={{ fontSize: '14px', opacity: 0.7, marginTop: '5px' }}>pending</p>
         </div>
 
-        <div onClick={() => setActiveTab('issues')} style={{ background: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'transform 0.2s', color: '#1f2937', position: 'relative' }}>
+        <div onClick={() => setActiveTab('issues')} style={{ background: darkTheme ? theme.cardBg : 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'transform 0.2s', color: theme.text, position: 'relative', border: darkTheme ? `1px solid ${theme.border}` : 'none' }}>
           <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px', opacity: 0.9 }}>⚠️ Reported Issues</h3>
           <p style={{ fontSize: '36px', fontWeight: 'bold' }}>{issues.filter(i => !i.resolved).length}</p>
           <p style={{ fontSize: '14px', opacity: 0.7, marginTop: '5px' }}>unresolved</p>
@@ -1042,17 +1609,18 @@ const AdminDashboard = () => {
       </div>
     </div>
   );
+};
 
   const WorkersView = () => (
     <div style={{ padding: '16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-        <h2 style={{ fontSize: '24px', fontWeight: 'bold' }}>Workers</h2>
+        <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: theme.text }}>Workers</h2>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: '6px', padding: '2px' }}>
-            <button onClick={() => setViewModes({...viewModes, workers: 'grid'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.workers === 'grid' ? 'white' : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.workers === 'grid' ? '#2563eb' : '#6b7280' }}>
+          <div style={{ display: 'flex', background: theme.hover, borderRadius: '6px', padding: '2px', border: `1px solid ${theme.border}` }}>
+            <button onClick={() => setViewModes({...viewModes, workers: 'grid'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.workers === 'grid' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.workers === 'grid' ? '#2563eb' : theme.textSecondary }}>
               <Grid3x3 size={14} /> Grid
             </button>
-            <button onClick={() => setViewModes({...viewModes, workers: 'list'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.workers === 'list' ? 'white' : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.workers === 'list' ? '#2563eb' : '#6b7280' }}>
+            <button onClick={() => setViewModes({...viewModes, workers: 'list'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.workers === 'list' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.workers === 'list' ? '#2563eb' : theme.textSecondary }}>
               <List size={14} /> List
             </button>
           </div>
@@ -1061,20 +1629,20 @@ const AdminDashboard = () => {
           </button>
         </div>
       </div>
-      <div style={{ marginBottom: '12px' }}><SearchBar value={searchTerm} onChange={handleSearchChange} /></div>
+      <div style={{ marginBottom: '12px' }}><SearchBar value={searchTerm} onChange={handleSearchChange} theme={theme} /></div>
 
       {viewModes.workers === 'grid' ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '20px' }}>
           {filteredWorkers.map(worker => (
-          <div key={worker.id} style={{ background: 'white', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+          <div key={worker.id} style={{ background: theme.cardBg, borderRadius: '12px', padding: '24px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', border: `1px solid ${theme.border}` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '15px' }}>
-              <div><h3 style={{ fontSize: '18px', fontWeight: 'bold' }}>{worker.name}</h3><p style={{ fontSize: '14px', color: '#6b7280', marginTop: '5px' }}>{worker.role}</p></div>
+              <div><h3 style={{ fontSize: '18px', fontWeight: 'bold', color: theme.text }}>{worker.name}</h3><p style={{ fontSize: '14px', color: theme.textSecondary, marginTop: '5px' }}>{worker.role}</p></div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button onClick={() => editWorker(worker)} style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer' }}><Edit size={18} /></button>
                 <button onClick={() => deleteWorker(worker.id)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}><Trash2 size={18} /></button>
               </div>
             </div>
-            <div style={{ fontSize: '14px', color: '#374151' }}>
+            <div style={{ fontSize: '14px', color: theme.text }}>
               <p style={{ marginBottom: '8px' }}>📧 {worker.email}</p>
               <p style={{ marginBottom: '12px' }}>📱 {worker.phone || 'N/A'}</p>
             </div>
@@ -1105,8 +1673,8 @@ const AdminDashboard = () => {
         ))}
       </div>
       ) : (
-        <div style={{ background: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1.5fr 100px', gap: '12px', padding: '10px 12px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', fontSize: '11px', fontWeight: '600', color: '#6b7280' }}>
+        <div style={{ background: theme.cardBg, borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1.5fr 100px', gap: '12px', padding: '10px 12px', background: theme.hover, borderBottom: '1px solid #e5e7eb', fontSize: '11px', fontWeight: '600', color: theme.textSecondary }}>
             <div>Name</div>
             <div>Email</div>
             <div>Phone</div>
@@ -1115,8 +1683,8 @@ const AdminDashboard = () => {
           {filteredWorkers.map(worker => (
             <div key={worker.id} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1.5fr 100px', gap: '12px', padding: '12px', borderBottom: '1px solid #f3f4f6', fontSize: '13px', alignItems: 'center' }}>
               <div style={{ fontWeight: '600' }}>{worker.name}</div>
-              <div style={{ color: '#6b7280' }}>{worker.email}</div>
-              <div style={{ color: '#6b7280' }}>{worker.phone || 'N/A'}</div>
+              <div style={{ color: theme.textSecondary }}>{worker.email}</div>
+              <div style={{ color: theme.textSecondary }}>{worker.phone || 'N/A'}</div>
               <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
                 <button onClick={() => editWorker(worker)} style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', padding: '4px' }} title="Edit"><Edit size={16} /></button>
                 <button onClick={() => deleteWorker(worker.id)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '4px' }} title="Delete"><Trash2 size={16} /></button>
@@ -1131,13 +1699,13 @@ const AdminDashboard = () => {
   const ClientsView = () => (
     <div style={{ padding: '16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-        <h2 style={{ fontSize: '24px', fontWeight: 'bold' }}>Clients</h2>
+        <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: theme.text }}>Clients</h2>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: '6px', padding: '2px' }}>
-            <button onClick={() => setViewModes({...viewModes, clients: 'grid'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.clients === 'grid' ? 'white' : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.clients === 'grid' ? '#2563eb' : '#6b7280' }}>
+          <div style={{ display: 'flex', background: theme.hover, borderRadius: '6px', padding: '2px', border: `1px solid ${theme.border}` }}>
+            <button onClick={() => setViewModes({...viewModes, clients: 'grid'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.clients === 'grid' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.clients === 'grid' ? '#2563eb' : theme.textSecondary }}>
               <Grid3x3 size={14} /> Grid
             </button>
-            <button onClick={() => setViewModes({...viewModes, clients: 'list'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.clients === 'list' ? 'white' : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.clients === 'list' ? '#2563eb' : '#6b7280' }}>
+            <button onClick={() => setViewModes({...viewModes, clients: 'list'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.clients === 'list' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.clients === 'list' ? '#2563eb' : theme.textSecondary }}>
               <List size={14} /> List
             </button>
           </div>
@@ -1149,20 +1717,20 @@ const AdminDashboard = () => {
           </button>
         </div>
       </div>
-      <div style={{ marginBottom: '12px' }}><SearchBar value={searchTerm} onChange={handleSearchChange} /></div>
+      <div style={{ marginBottom: '12px' }}><SearchBar value={searchTerm} onChange={handleSearchChange} theme={theme} /></div>
 
       {viewModes.clients === 'grid' ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '20px' }}>
           {filteredClients.map(client => (
-          <div key={client.id} style={{ background: 'white', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+          <div key={client.id} style={{ background: theme.cardBg, borderRadius: '12px', padding: '24px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', border: `1px solid ${theme.border}` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '15px' }}>
-              <div><h3 style={{ fontSize: '18px', fontWeight: 'bold' }}>{client.name}</h3><p style={{ fontSize: '14px', color: '#6b7280', marginTop: '5px' }}>Client</p></div>
+              <div><h3 style={{ fontSize: '18px', fontWeight: 'bold', color: theme.text }}>{client.name}</h3><p style={{ fontSize: '14px', color: theme.textSecondary, marginTop: '5px' }}>Client</p></div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button onClick={() => editClient(client)} style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer' }}><Edit size={18} /></button>
                 <button onClick={() => deleteClient(client.id)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}><Trash2 size={18} /></button>
               </div>
             </div>
-            <div style={{ fontSize: '14px', color: '#374151' }}>
+            <div style={{ fontSize: '14px', color: theme.text }}>
               <p style={{ marginBottom: '8px' }}>📧 {client.email || 'N/A'}</p>
               <p>📱 {client.phone || 'N/A'}</p>
             </div>
@@ -1170,18 +1738,18 @@ const AdminDashboard = () => {
         ))}
       </div>
       ) : (
-        <div style={{ background: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1.5fr 100px', gap: '12px', padding: '10px 12px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', fontSize: '11px', fontWeight: '600', color: '#6b7280' }}>
+        <div style={{ background: theme.cardBg, borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden', border: `1px solid ${theme.border}` }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1.5fr 100px', gap: '12px', padding: '10px 12px', background: theme.hover, borderBottom: `1px solid ${theme.border}`, fontSize: '11px', fontWeight: '600', color: theme.textSecondary }}>
             <div>Name</div>
             <div>Email</div>
             <div>Phone</div>
             <div></div>
           </div>
           {filteredClients.map(client => (
-            <div key={client.id} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1.5fr 100px', gap: '12px', padding: '12px', borderBottom: '1px solid #f3f4f6', fontSize: '13px', alignItems: 'center' }}>
-              <div style={{ fontWeight: '600' }}>{client.name}</div>
-              <div style={{ color: '#6b7280' }}>{client.email}</div>
-              <div style={{ color: '#6b7280' }}>{client.phone || 'N/A'}</div>
+            <div key={client.id} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1.5fr 100px', gap: '12px', padding: '12px', borderBottom: `1px solid ${theme.border}`, fontSize: '13px', alignItems: 'center' }}>
+              <div style={{ fontWeight: '600', color: theme.text }}>{client.name}</div>
+              <div style={{ color: theme.textSecondary }}>{client.email}</div>
+              <div style={{ color: theme.textSecondary }}>{client.phone || 'N/A'}</div>
               <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
                 <button onClick={() => editClient(client)} style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', padding: '4px' }} title="Edit"><Edit size={16} /></button>
                 <button onClick={() => deleteClient(client.id)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '4px' }} title="Delete"><Trash2 size={16} /></button>
@@ -1197,9 +1765,9 @@ const AdminDashboard = () => {
     <div style={{ padding: '16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 'bold' }}>Properties</h2>
+          <h2 style={{ fontSize: '24px', fontWeight: 'bold' , color: theme.text }}>Properties</h2>
           {selectedProperties.length > 0 && (
-            <span style={{ fontSize: '14px', color: '#6b7280' }}>({selectedProperties.length} selected)</span>
+            <span style={{ fontSize: '14px', color: theme.textSecondary }}>({selectedProperties.length} selected)</span>
           )}
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -1222,22 +1790,74 @@ const AdminDashboard = () => {
               <Trash2 size={16} /> Delete ({selectedProperties.length})
             </button>
           )}
-          <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: '6px', padding: '2px' }}>
-            <button onClick={() => setViewModes({...viewModes, properties: 'grid'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.properties === 'grid' ? 'white' : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.properties === 'grid' ? '#2563eb' : '#6b7280' }}>
+          <div style={{ display: 'flex', background: theme.hover, borderRadius: '6px', padding: '2px' }}>
+            <button onClick={() => setViewModes({...viewModes, properties: 'grid'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.properties === 'grid' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.properties === 'grid' ? '#2563eb' : theme.textSecondary }}>
               <Grid3x3 size={14} /> Grid
             </button>
-            <button onClick={() => setViewModes({...viewModes, properties: 'list'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.properties === 'list' ? 'white' : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.properties === 'list' ? '#2563eb' : '#6b7280' }}>
+            <button onClick={() => setViewModes({...viewModes, properties: 'list'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.properties === 'list' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.properties === 'list' ? '#2563eb' : theme.textSecondary }}>
               <List size={14} /> List
             </button>
           </div>
           <button onClick={() => { setEditingItem(null); setShowPropertyModal(true); }} style={{ background: '#9333ea', color: 'white', padding: '8px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: '500' }}>
             <Plus size={16} /> Add
           </button>
+          <button onClick={() => setShowBulkImportModal(true)} style={{ background: '#7c3aed', color: 'white', padding: '8px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: '500' }}>
+            <Upload size={16} /> Bulk Import
+          </button>
+          <button onClick={() => { setEditingGroup(null); setGroupForm({ name: '', selectedPropertyIds: [] }); setShowGroupModal(true); }} style={{ background: '#7c3aed', color: 'white', padding: '8px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: '500' }}>
+            <Grid3x3 size={16} /> Manage Groups
+          </button>
+          {properties.filter(p => !p.latitude || !p.longitude).length > 0 && (
+            <button onClick={geocodeAllProperties} style={{ background: '#ea580c', color: 'white', padding: '8px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: '500' }}>
+              <MapPin size={16} /> Geocode All ({properties.filter(p => !p.latitude || !p.longitude).length})
+            </button>
+          )}
         </div>
       </div>
       <div style={{ marginBottom: '12px', display: 'flex', gap: '12px', alignItems: 'center' }}>
-        <SearchBar value={searchTerm} onChange={handleSearchChange} />
-        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#374151', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+        <div style={{ flex: 1 }}>
+          <SearchBar value={searchTerm} onChange={handleSearchChange} theme={theme} />
+        </div>
+        <select
+          value={selectedGroup}
+          onChange={(e) => setSelectedGroup(e.target.value)}
+          style={{ padding: '12px 16px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', background: theme.cardBg, cursor: 'pointer', minWidth: '200px', fontWeight: '500', color: theme.text }}
+        >
+          <option value="all">All Properties ({properties.length})</option>
+          <option value="ungrouped">Ungrouped ({properties.filter(p => !p.property_group).length})</option>
+          {propertyGroups.map(group => {
+            const count = properties.filter(p => p.property_group === group).length;
+            return (
+              <option key={group} value={group}>{group} ({count})</option>
+            );
+          })}
+        </select>
+        {selectedGroup !== 'all' && selectedGroup !== 'ungrouped' && (
+          <>
+            <button
+              onClick={() => {
+                // Load existing properties in this group
+                const groupProperties = properties.filter(p => p.property_group === selectedGroup);
+                setEditingGroup(selectedGroup);
+                setGroupForm({
+                  name: selectedGroup,
+                  selectedPropertyIds: groupProperties.map(p => p.id)
+                });
+                setShowGroupModal(true);
+              }}
+              style={{ background: '#2563eb', color: 'white', padding: '8px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: '500', whiteSpace: 'nowrap' }}
+            >
+              <Pencil size={16} /> Edit Group
+            </button>
+            <button
+              onClick={() => deleteGroup(selectedGroup)}
+              style={{ background: '#dc2626', color: 'white', padding: '8px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: '500', whiteSpace: 'nowrap' }}
+            >
+              <Trash2 size={16} /> Delete Group
+            </button>
+          </>
+        )}
+        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: theme.text, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
           <input
             type="checkbox"
             checked={filteredProperties.length > 0 && filteredProperties.every(p => selectedProperties.includes(p.id))}
@@ -1263,7 +1883,7 @@ const AdminDashboard = () => {
             const currentPhotoIndex = propertyPhotoIndexes[property.id] || 0;
 
             return (
-              <div key={property.id} style={{ background: 'white', borderRadius: '8px', padding: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: selectedProperties.includes(property.id) ? '2px solid #2563eb' : '1px solid #e5e7eb', position: 'relative' }}>
+              <div key={property.id} style={{ background: theme.cardBg, borderRadius: '8px', padding: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: selectedProperties.includes(property.id) ? '2px solid #2563eb' : '1px solid #e5e7eb', position: 'relative' }}>
                 <input
                   type="checkbox"
                   checked={selectedProperties.includes(property.id)}
@@ -1300,14 +1920,19 @@ const AdminDashboard = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '6px' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{property.property_name}</h3>
-                    <p style={{ color: '#6b7280', fontSize: '11px' }}>{property.clients?.name}</p>
+                    {property.property_group && (
+                      <span style={{ display: 'inline-block', background: '#dbeafe', color: '#1e40af', fontSize: '10px', fontWeight: '600', padding: '2px 8px', borderRadius: '10px', marginBottom: '4px' }}>
+                        {property.property_group}
+                      </span>
+                    )}
+                    <p style={{ color: theme.textSecondary, fontSize: '11px' }}>{property.clients?.name}</p>
                   </div>
                   <div style={{ display: 'flex', gap: '4px', marginLeft: '4px' }}>
                     <button onClick={() => editProperty(property)} style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', padding: '2px' }}><Edit size={14} /></button>
                     <button onClick={() => deleteProperty(property.id)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '2px' }}><Trash2 size={14} /></button>
                   </div>
                 </div>
-                <p style={{ color: '#374151', fontSize: '11px', marginBottom: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📍 {property.address}</p>
+                <p style={{ color: theme.text, fontSize: '11px', marginBottom: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📍 {property.address}</p>
                 {property.special_notes && (
                   <p style={{ fontSize: '10px', color: '#92400e', background: '#fef3c7', padding: '4px 6px', borderRadius: '4px', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📝 {property.special_notes}</p>
                 )}
@@ -1316,8 +1941,8 @@ const AdminDashboard = () => {
           })}
         </div>
       ) : (
-        <div style={{ background: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '40px 2fr 1.5fr 3fr 100px', gap: '12px', padding: '10px 12px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', fontSize: '11px', fontWeight: '600', color: '#6b7280' }}>
+        <div style={{ background: theme.cardBg, borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '40px 2fr 1.5fr 3fr 100px', gap: '12px', padding: '10px 12px', background: theme.hover, borderBottom: '1px solid #e5e7eb', fontSize: '11px', fontWeight: '600', color: theme.textSecondary }}>
             <div></div>
             <div>Property Name</div>
             <div>Client</div>
@@ -1341,9 +1966,16 @@ const AdminDashboard = () => {
                   style={{ width: '16px', height: '16px', cursor: 'pointer' }}
                 />
               </div>
-              <div style={{ fontWeight: '600' }}>{property.property_name}</div>
-              <div style={{ color: '#6b7280' }}>{property.clients?.name || 'N/A'}</div>
-              <div style={{ color: '#6b7280' }}>{property.address}</div>
+              <div>
+                <div style={{ fontWeight: '600', marginBottom: '4px' }}>{property.property_name}</div>
+                {property.property_group && (
+                  <span style={{ display: 'inline-block', background: '#dbeafe', color: '#1e40af', fontSize: '10px', fontWeight: '600', padding: '2px 8px', borderRadius: '10px' }}>
+                    {property.property_group}
+                  </span>
+                )}
+              </div>
+              <div style={{ color: theme.textSecondary }}>{property.clients?.name || 'N/A'}</div>
+              <div style={{ color: theme.textSecondary }}>{property.address}</div>
               <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
                 <button onClick={() => editProperty(property)} style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', padding: '4px' }} title="Edit"><Edit size={16} /></button>
                 <button onClick={() => deleteProperty(property.id)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '4px' }} title="Delete"><Trash2 size={16} /></button>
@@ -1354,6 +1986,336 @@ const AdminDashboard = () => {
       )}
     </div>
   );
+
+  // Create icons ONCE outside component - never recreate
+  const mapIcons = {
+    blue: L.icon({
+      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
+    }),
+    red: L.icon({
+      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
+    })
+  };
+
+  // Separate stable map component
+  const StableMap = ({ properties, selectedProperties, onMarkerClick }) => {
+    const propertiesWithCoords = properties.filter(p => p.latitude && p.longitude);
+
+    // Use ref to store center - calculate ONCE on first render, then freeze it
+    const centerRef = React.useRef(null);
+    if (centerRef.current === null) {
+      if (propertiesWithCoords.length === 0) {
+        centerRef.current = [53.5511, 9.9937];
+      } else {
+        const sumLat = propertiesWithCoords.reduce((sum, p) => sum + parseFloat(p.latitude), 0);
+        const sumLng = propertiesWithCoords.reduce((sum, p) => sum + parseFloat(p.longitude), 0);
+        centerRef.current = [sumLat / propertiesWithCoords.length, sumLng / propertiesWithCoords.length];
+      }
+    }
+
+    return (
+      <MapContainer
+        center={centerRef.current}
+        zoom={12}
+        style={{ height: '100%', width: '100%' }}
+        scrollWheelZoom={true}
+        zoomControl={true}
+        preferCanvas={true}
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url={darkTheme
+            ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          }
+        />
+        {propertiesWithCoords.map(property => {
+          const isSelected = selectedProperties.includes(property.id);
+          return (
+            <Marker
+              key={property.id}
+              position={[parseFloat(property.latitude), parseFloat(property.longitude)]}
+              icon={isSelected ? mapIcons.blue : mapIcons.red}
+              eventHandlers={{
+                click: () => onMarkerClick(property.id, isSelected)
+              }}
+            >
+              <Popup>
+                <div style={{ minWidth: '200px' }}>
+                  <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>{property.property_name}</h3>
+                  {property.property_group && (
+                    <span style={{ display: 'inline-block', background: '#dbeafe', color: '#1e40af', fontSize: '10px', fontWeight: '600', padding: '2px 8px', borderRadius: '10px', marginBottom: '4px' }}>
+                      {property.property_group}
+                    </span>
+                  )}
+                  <p style={{ fontSize: '12px', color: theme.textSecondary, marginTop: '4px' }}>{property.clients?.name}</p>
+                  <p style={{ fontSize: '11px', color: theme.text, marginTop: '4px' }}>📍 {property.address}</p>
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
+      </MapContainer>
+    );
+  };
+
+  const WorkerTrackingView = () => {
+    // Get all active jobs with workers and properties
+    const activeJobs = jobs.filter(j => j.status !== 'completed' && j.worker_id && j.property_id);
+
+    // Calculate distances for each worker-job pair
+    const workerJobDistances = activeJobs.map(job => {
+      const worker = workers.find(w => w.id === job.worker_id);
+      const property = properties.find(p => p.id === job.property_id);
+
+      // For now, we'll use placeholder worker locations (can be updated with real GPS data later)
+      // Distance calculation would need worker's current location
+      return {
+        job,
+        worker,
+        property,
+        distance: null // Placeholder - would calculate actual distance with worker GPS
+      };
+    });
+
+    return (
+      <div style={{ display: 'flex', height: 'calc(100vh - 100px)' }}>
+        {/* Map Section - Left Side */}
+        <div style={{ flex: 1, padding: '20px', paddingRight: '10px' }}>
+          <div style={{ height: '100%', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+            <StableMap
+              properties={properties.filter(p => activeJobs.some(j => j.property_id === p.id))}
+              selectedProperties={[]}
+              onMarkerClick={() => {}}
+            />
+          </div>
+        </div>
+
+        {/* Sidebar - Right Side */}
+        <div style={{ width: '400px', background: theme.cardBg, borderLeft: '1px solid #e5e7eb', padding: '20px', overflowY: 'auto' }}>
+          <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '20px' }}>Worker Tracking</h2>
+
+          <p style={{ fontSize: '13px', color: theme.textSecondary, marginBottom: '20px', padding: '12px', background: '#fef3c7', borderRadius: '6px', border: '1px solid #fcd34d' }}>
+            📍 Worker GPS tracking coming soon. This map shows active job locations.
+          </p>
+
+          {/* Active Jobs List */}
+          <div>
+            <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', color: theme.text }}>
+              Active Jobs ({activeJobs.length})
+            </h3>
+
+            {activeJobs.length === 0 ? (
+              <div style={{ padding: '40px 20px', textAlign: 'center', background: theme.hover, borderRadius: '8px' }}>
+                <p style={{ color: theme.textSecondary, fontSize: '14px' }}>No active jobs</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {workerJobDistances.map(({ job, worker, property }) => (
+                  <div key={job.id} style={{ background: theme.hover, padding: '14px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: '600', color: theme.text }}>
+                          {worker?.full_name || 'Unknown Worker'}
+                        </div>
+                        <div style={{ fontSize: '11px', color: theme.textSecondary, marginTop: '2px' }}>
+                          {worker?.email}
+                        </div>
+                      </div>
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: '600',
+                        padding: '4px 8px',
+                        borderRadius: '12px',
+                        background: job.status === 'in_progress' ? '#dbeafe' : '#fef3c7',
+                        color: job.status === 'in_progress' ? '#1e40af' : '#92400e'
+                      }}>
+                        {job.status === 'in_progress' ? '🔄 In Progress' : '📋 Assigned'}
+                      </span>
+                    </div>
+
+                    <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '8px', marginTop: '8px' }}>
+                      <div style={{ fontSize: '12px', fontWeight: '600', color: theme.text, marginBottom: '4px' }}>
+                        📍 {property?.property_name}
+                      </div>
+                      <div style={{ fontSize: '11px', color: theme.textSecondary, marginBottom: '4px' }}>
+                        {property?.address}
+                      </div>
+                      <div style={{ fontSize: '11px', color: theme.textSecondary }}>
+                        📅 Scheduled: {job.scheduled_date}
+                      </div>
+                      {job.deadline_time && (
+                        <div style={{ fontSize: '11px', color: '#dc2626', marginTop: '4px', fontWeight: '500' }}>
+                          ⏰ Deadline: {job.deadline_time}
+                        </div>
+                      )}
+                    </div>
+
+                    {property?.property_group && (
+                      <div style={{ marginTop: '8px' }}>
+                        <span style={{ fontSize: '10px', fontWeight: '600', padding: '3px 8px', borderRadius: '10px', background: '#dbeafe', color: '#1e40af' }}>
+                          Group: {property.property_group}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const MapView = () => {
+    const propertiesWithCoords = filteredProperties.filter(p => p.latitude && p.longitude);
+
+    const handleMarkerClick = (propertyId, isCurrentlySelected) => {
+      if (isCurrentlySelected) {
+        setSelectedProperties(prev => prev.filter(id => id !== propertyId));
+      } else {
+        setSelectedProperties(prev => [...prev, propertyId]);
+      }
+    };
+
+    return (
+      <div style={{ display: 'flex', height: 'calc(100vh - 100px)' }}>
+        {/* Map Section - Left Side */}
+        <div style={{ flex: 1, padding: '20px', paddingRight: '10px' }}>
+          {propertiesWithCoords.length > 0 ? (
+            <div style={{ height: '100%', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+              <StableMap
+                properties={filteredProperties}
+                selectedProperties={selectedProperties}
+                onMarkerClick={handleMarkerClick}
+              />
+            </div>
+          ) : (
+            <div style={{ height: '100%', background: theme.cardBg, borderRadius: '8px', padding: '60px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+              <MapIcon size={48} style={{ color: '#9ca3af', marginBottom: '16px' }} />
+              <h3 style={{ fontSize: '18px', fontWeight: '600', color: theme.text, marginBottom: '8px' }}>No Properties with Coordinates</h3>
+              <p style={{ color: theme.textSecondary, marginBottom: '16px' }}>Geocode your properties to see them on the map</p>
+              {properties.filter(p => !p.latitude || !p.longitude).length > 0 && (
+                <button
+                  onClick={geocodeAllProperties}
+                  style={{ background: '#ea580c', color: 'white', padding: '10px 20px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <MapPin size={16} />
+                  Geocode All ({properties.filter(p => !p.latitude || !p.longitude).length}) Properties
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Sidebar - Right Side */}
+        <div style={{ width: '400px', background: theme.cardBg, borderLeft: '1px solid #e5e7eb', padding: '20px', overflowY: 'auto' }}>
+          <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '20px' }}>Map Controls</h2>
+
+          {/* Group Filter */}
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ fontSize: '13px', fontWeight: '600', color: theme.text, marginBottom: '6px', display: 'block' }}>Filter by Group:</label>
+            <select
+              value={selectedGroup}
+              onChange={(e) => setSelectedGroup(e.target.value)}
+              style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px', background: theme.cardBg, cursor: 'pointer' }}
+            >
+              <option value="all">All Properties ({properties.length})</option>
+              <option value="ungrouped">Ungrouped ({properties.filter(p => !p.property_group).length})</option>
+              {propertyGroups.map(group => {
+                const count = properties.filter(p => p.property_group === group).length;
+                return <option key={group} value={group}>{group} ({count})</option>;
+              })}
+            </select>
+          </div>
+
+          {/* Legend */}
+          <div style={{ marginBottom: '20px', padding: '12px', background: theme.hover, borderRadius: '6px' }}>
+            <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>Legend:</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '16px', height: '16px', background: '#2563eb', borderRadius: '50%' }}></div>
+                <span style={{ fontSize: '13px', color: theme.textSecondary }}>Selected</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '16px', height: '16px', background: '#dc2626', borderRadius: '50%' }}></div>
+                <span style={{ fontSize: '13px', color: theme.textSecondary }}>Unselected</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Selected Properties Count */}
+          {selectedProperties.length > 0 && (
+            <div style={{ marginBottom: '16px', padding: '12px', background: '#eff6ff', borderRadius: '6px', border: '1px solid #bfdbfe' }}>
+              <div style={{ fontSize: '14px', fontWeight: '600', color: '#1e40af' }}>
+                {selectedProperties.length} {selectedProperties.length === 1 ? 'property' : 'properties'} selected
+              </div>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+            <button
+              onClick={() => {
+                setEditingGroup(null);
+                setGroupForm({ name: '', selectedPropertyIds: selectedProperties });
+                if (selectedProperties.length > 0) {
+                  const suggestions = findNearbyProperties(selectedProperties, proximityRadius);
+                  setProximitySuggestions(suggestions);
+                }
+                setShowGroupModal(true);
+              }}
+              style={{ background: '#9333ea', color: 'white', padding: '10px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '14px', fontWeight: '500' }}
+            >
+              <Plus size={16} /> Create Group from Selected
+            </button>
+            {selectedProperties.length > 0 && (
+              <button
+                onClick={() => setSelectedProperties([])}
+                style={{ background: '#dc2626', color: 'white', padding: '10px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '14px', fontWeight: '500' }}
+              >
+                <X size={16} /> Clear Selection
+              </button>
+            )}
+          </div>
+
+          {/* Selected Properties List */}
+          {selectedProperties.length > 0 && (
+            <div>
+              <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '10px', color: theme.text }}>Selected Properties:</h3>
+              <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '6px' }}>
+                {properties.filter(p => selectedProperties.includes(p.id)).map(prop => (
+                  <div key={prop.id} style={{ padding: '10px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '13px', fontWeight: '600', color: theme.text }}>{prop.property_name}</div>
+                      <div style={{ fontSize: '11px', color: theme.textSecondary, marginTop: '2px' }}>{prop.address}</div>
+                    </div>
+                    <button
+                      onClick={() => setSelectedProperties(prev => prev.filter(id => id !== prop.id))}
+                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px', color: '#dc2626' }}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   const JobsView = () => {
     const [statusFilter, setStatusFilter] = useState('all'); // all, assigned, in_progress, completed
@@ -1496,9 +2458,9 @@ const AdminDashboard = () => {
       <div style={{ padding: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <h2 style={{ fontSize: '24px', fontWeight: 'bold' }}>Jobs</h2>
+            <h2 style={{ fontSize: '24px', fontWeight: 'bold' , color: theme.text }}>Jobs</h2>
             {selectedJobs.length > 0 && (
-              <span style={{ fontSize: '14px', color: '#6b7280' }}>({selectedJobs.length} selected)</span>
+              <span style={{ fontSize: '14px', color: theme.textSecondary }}>({selectedJobs.length} selected)</span>
             )}
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -1521,17 +2483,17 @@ const AdminDashboard = () => {
                 <Trash2 size={16} /> Delete ({selectedJobs.length})
               </button>
             )}
-            <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: '6px', padding: '2px' }}>
-              <button onClick={() => setViewModes({...viewModes, jobs: 'grid'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.jobs === 'grid' ? 'white' : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.jobs === 'grid' ? '#2563eb' : '#6b7280' }}>
+            <div style={{ display: 'flex', background: theme.hover, borderRadius: '6px', padding: '2px' }}>
+              <button onClick={() => setViewModes({...viewModes, jobs: 'grid'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.jobs === 'grid' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.jobs === 'grid' ? '#2563eb' : theme.textSecondary }}>
                 <Grid3x3 size={14} /> Grid
               </button>
-              <button onClick={() => setViewModes({...viewModes, jobs: 'list'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.jobs === 'list' ? 'white' : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.jobs === 'list' ? '#2563eb' : '#6b7280' }}>
+              <button onClick={() => setViewModes({...viewModes, jobs: 'list'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.jobs === 'list' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.jobs === 'list' ? '#2563eb' : theme.textSecondary }}>
                 <List size={14} /> List
               </button>
             </div>
             {/* Auto-refresh toggle */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'white', padding: '6px 10px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-              <span style={{ fontSize: '12px', color: '#6b7280' }}>Auto-refresh</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: theme.cardBg, padding: '6px 10px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+              <span style={{ fontSize: '12px', color: theme.textSecondary }}>Auto-refresh</span>
               <label style={{ position: 'relative', display: 'inline-block', width: '36px', height: '20px', cursor: 'pointer' }}>
                 <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
                 <span style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: autoRefresh ? '#10b981' : '#d1d5db', borderRadius: '20px', transition: 'background-color 0.2s' }}>
@@ -1545,16 +2507,16 @@ const AdminDashboard = () => {
             </button>
           </div>
         </div>
-        <div style={{ marginBottom: '12px' }}><SearchBar value={searchTerm} onChange={handleSearchChange} /></div>
+        <div style={{ marginBottom: '12px' }}><SearchBar value={searchTerm} onChange={handleSearchChange} theme={theme} /></div>
 
         {/* Filters - Compact */}
-        <div style={{ background: 'white', padding: '10px', borderRadius: '8px', marginBottom: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+        <div style={{ background: theme.cardBg, padding: '10px', borderRadius: '8px', marginBottom: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
 
           {/* Global Publish Toggle - Compact */}
-          <div style={{ marginBottom: '10px', padding: '10px', background: '#eff6ff', borderRadius: '8px', border: '1px solid #2563eb' }}>
+          <div style={{ marginBottom: '10px', padding: '10px', background: darkTheme ? theme.hover : '#eff6ff', borderRadius: '8px', border: '1px solid #2563eb' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <div style={{ fontSize: '13px', fontWeight: '600', color: '#1f2937' }}>
+                <div style={{ fontSize: '13px', fontWeight: '600', color: theme.text }}>
                   🌐 Global Publish Control
                 </div>
               </div>
@@ -1626,9 +2588,9 @@ const AdminDashboard = () => {
           </div>
 
           {/* Deduplicate Toggle - Compact */}
-          <div style={{ marginBottom: '10px', padding: '10px', background: deduplicateRecurring ? '#f0fdf4' : '#fef2f2', borderRadius: '8px', border: `1px solid ${deduplicateRecurring ? '#10b981' : '#ef4444'}` }}>
+          <div style={{ marginBottom: '10px', padding: '10px', background: darkTheme ? theme.hover : (deduplicateRecurring ? '#f0fdf4' : '#fef2f2'), borderRadius: '8px', border: `1px solid ${deduplicateRecurring ? '#10b981' : '#ef4444'}` }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ fontSize: '13px', fontWeight: '600', color: '#1f2937', userSelect: 'none' }}>
+              <div style={{ fontSize: '13px', fontWeight: '600', color: theme.text, userSelect: 'none' }}>
                 {deduplicateRecurring ? '✅ Hide duplicate jobs' : '⚠️ Showing duplicates'}
               </div>
               <input
@@ -1649,7 +2611,7 @@ const AdminDashboard = () => {
 
             {/* Date Range */}
             <div style={{ flex: '1', minWidth: '200px' }}>
-              <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '6px', display: 'block' }}>📅 Date Range</label>
+              <label style={{ fontSize: '12px', fontWeight: '600', color: theme.text, marginBottom: '6px', display: 'block' }}>📅 Date Range</label>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {[
                   { value: 'today', label: 'Today', icon: '📅' },
@@ -1682,7 +2644,7 @@ const AdminDashboard = () => {
               {dateFilter === 'custom' && (
                 <div style={{ display: 'flex', gap: '10px', marginTop: '10px', flexWrap: 'wrap' }}>
                   <div>
-                    <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>From:</label>
+                    <label style={{ fontSize: '11px', color: theme.textSecondary, display: 'block', marginBottom: '4px' }}>From:</label>
                     <input
                       type="date"
                       value={startDate}
@@ -1691,7 +2653,7 @@ const AdminDashboard = () => {
                     />
                   </div>
                   <div>
-                    <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>To:</label>
+                    <label style={{ fontSize: '11px', color: theme.textSecondary, display: 'block', marginBottom: '4px' }}>To:</label>
                     <input
                       type="date"
                       value={endDate}
@@ -1705,10 +2667,10 @@ const AdminDashboard = () => {
 
             {/* Status */}
             <div style={{ flex: '1', minWidth: '200px' }}>
-              <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '6px', display: 'block' }}>📊 Status</label>
+              <label style={{ fontSize: '12px', fontWeight: '600', color: theme.text, marginBottom: '6px', display: 'block' }}>📊 Status</label>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {[
-                  { value: 'all', label: 'All', color: '#6b7280' },
+                  { value: 'all', label: 'All', color: theme.textSecondary },
                   { value: 'assigned', label: 'Assigned', color: '#2563eb' },
                   { value: 'in_progress', label: 'In Progress', color: '#f59e0b' },
                   { value: 'completed', label: 'Completed', color: '#10b981' }
@@ -1736,7 +2698,7 @@ const AdminDashboard = () => {
 
             {/* Job Type */}
             <div style={{ flex: '1', minWidth: '200px' }}>
-              <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '6px', display: 'block' }}>🔁 Job Type</label>
+              <label style={{ fontSize: '12px', fontWeight: '600', color: theme.text, marginBottom: '6px', display: 'block' }}>🔁 Job Type</label>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {[
                   { value: 'all', label: 'All', icon: '📋' },
@@ -1767,8 +2729,8 @@ const AdminDashboard = () => {
           </div>
 
           {/* Results count */}
-          <div style={{ marginTop: '16px', padding: '12px', background: '#f9fafb', borderRadius: '8px', borderLeft: '4px solid #2563eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <p style={{ fontSize: '14px', color: '#374151', margin: 0 }}>
+          <div style={{ marginTop: '16px', padding: '12px', background: theme.hover, borderRadius: '8px', borderLeft: '4px solid #2563eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <p style={{ fontSize: '14px', color: theme.text, margin: 0 }}>
               <strong>Showing {displayableJobs.length} jobs</strong>
               {deduplicateRecurring && filteredJobs.length > displayableJobs.length && ` (${filteredJobs.length - displayableJobs.length} duplicates hidden)`}
               {dateFilter !== 'all' && ` • ${dateFilter === 'today' ? 'Today' : dateFilter === 'tomorrow' ? 'Today & Tomorrow' : dateFilter === 'week' ? 'Next 7 days' : dateFilter === 'month' ? 'Next 30 days' : dateFilter === 'custom' ? `${startDate || 'Start'} to ${endDate || 'End'}` : ''}`}
@@ -1776,7 +2738,7 @@ const AdminDashboard = () => {
               {jobTypeFilter === 'recurring' && ` • Recurring only`}
               {jobTypeFilter === 'one-time' && ` • One-time only`}
             </p>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#374151', cursor: 'pointer', userSelect: 'none' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: theme.text, cursor: 'pointer', userSelect: 'none' }}>
               <input
                 type="checkbox"
                 checked={displayableJobs.filter(j => j.properties?.property_name.toLowerCase().includes(searchTerm.toLowerCase()) || j.workers?.name.toLowerCase().includes(searchTerm.toLowerCase())).length > 0 && displayableJobs.filter(j => j.properties?.property_name.toLowerCase().includes(searchTerm.toLowerCase()) || j.workers?.name.toLowerCase().includes(searchTerm.toLowerCase())).every(j => selectedJobs.includes(j.id))}
@@ -1808,7 +2770,7 @@ const AdminDashboard = () => {
             if (visibleJobs.length === 0) return null;
 
             return (
-              <div key={workerId} style={{ background: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+              <div key={workerId} style={{ background: theme.cardBg, borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
                 {/* Worker Header */}
                 <div
                   onClick={() => setExpandedWorkers({ ...expandedWorkers, [workerId]: !isExpanded })}
@@ -1822,7 +2784,7 @@ const AdminDashboard = () => {
                 {isExpanded && (
                 <div style={{ padding: '15px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '12px' }}>
                   {visibleJobs.map(job => (
-                    <div key={job.id} style={{ background: '#f9fafb', borderRadius: '8px', padding: '14px', border: selectedJobs.includes(job.id) ? '2px solid #2563eb' : job.is_vip ? '2px solid #fbbf24' : '1px solid #e5e7eb', position: 'relative' }}>
+                    <div key={job.id} style={{ background: theme.hover, borderRadius: '8px', padding: '14px', border: selectedJobs.includes(job.id) ? '2px solid #2563eb' : job.is_vip ? '2px solid #fbbf24' : '1px solid #e5e7eb', position: 'relative' }}>
                       <input
                         type="checkbox"
                         checked={selectedJobs.includes(job.id)}
@@ -1838,7 +2800,7 @@ const AdminDashboard = () => {
                       />
                       {job.is_vip && <span style={{ fontSize: '10px', background: '#fef3c7', color: '#92400e', padding: '2px 6px', borderRadius: '4px', marginBottom: '6px', display: 'inline-block' }}>⭐ VIP</span>}
                       <h3 style={{ fontSize: '15px', fontWeight: 'bold', marginBottom: '6px', paddingRight: '24px' }}>{job.properties?.property_name}</h3>
-                      <p style={{ color: '#6b7280', marginBottom: '4px', fontSize: '12px' }}>📅 {job.scheduled_date}</p>
+                      <p style={{ color: theme.textSecondary, marginBottom: '4px', fontSize: '12px' }}>📅 {job.scheduled_date}</p>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
                         <span style={{ padding: '3px 8px', borderRadius: '12px', fontSize: '10px', fontWeight: '500', background: job.status === 'completed' ? '#d1fae5' : job.status === 'in_progress' ? '#fef3c7' : '#dbeafe', color: job.status === 'completed' ? '#065f46' : job.status === 'in_progress' ? '#92400e' : '#1e40af' }}>
                           {job.status}
@@ -1869,7 +2831,7 @@ const AdminDashboard = () => {
             const allJobsExpanded = visibleJobs.every(job => expandedJobs[job.id] !== false);
 
             return (
-              <div key={workerId} style={{ background: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+              <div key={workerId} style={{ background: theme.cardBg, borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
                 {/* Worker Header - Compact */}
                 <div
                   style={{ padding: '10px 12px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
@@ -2016,8 +2978,8 @@ const AdminDashboard = () => {
                           {/* Expanded View - Full Details */}
                           {isJobExpanded && (
                             <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e5e7eb' }} onClick={(e) => e.stopPropagation()}>
-                              <p style={{ color: '#6b7280', marginBottom: '4px', fontSize: '12px' }}>📍 {job.properties?.address}</p>
-                              <p style={{ color: '#6b7280', fontSize: '12px', marginBottom: '4px' }}>📅 {job.scheduled_date}</p>
+                              <p style={{ color: theme.textSecondary, marginBottom: '4px', fontSize: '12px' }}>📍 {job.properties?.address}</p>
+                              <p style={{ color: theme.textSecondary, fontSize: '12px', marginBottom: '4px' }}>📅 {job.scheduled_date}</p>
                               {job.recurring_group_id && <p style={{ fontSize: '11px', color: '#f59e0b', fontWeight: '600', marginBottom: '4px' }}>🔁 Recurring Job</p>}
                               {job.is_vip && job.deadline_time && <p style={{ fontSize: '12px', color: '#dc2626', fontWeight: '600', marginBottom: '4px' }}>⏰ Deadline: {job.deadline_time}</p>}
                               {job.start_time && <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '2px' }}>Started: {new Date(job.start_time).toLocaleString()}</p>}
@@ -2025,7 +2987,7 @@ const AdminDashboard = () => {
 
                               {/* Time Tracking */}
                               {job.estimated_duration_minutes && (
-                                <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
+                                <p style={{ fontSize: '11px', color: theme.textSecondary, marginTop: '4px' }}>
                                   ⏱️ Est: {job.estimated_duration_minutes >= 60 ? `${Math.floor(job.estimated_duration_minutes / 60)}h ${job.estimated_duration_minutes % 60}m` : `${job.estimated_duration_minutes}m`}
                                   {job.actual_duration_minutes && (
                                     <span style={{ marginLeft: '8px', color: job.actual_duration_minutes <= job.estimated_duration_minutes ? '#059669' : '#dc2626', fontWeight: '600' }}>
@@ -2041,7 +3003,7 @@ const AdminDashboard = () => {
 
                               {/* Change Worker UI */}
                               {editingJobId === job.id && (
-                                <div style={{ marginTop: '8px', padding: '8px', background: 'white', borderRadius: '6px', border: '1px solid #d1d5db' }}>
+                                <div style={{ marginTop: '8px', padding: '8px', background: theme.cardBg, borderRadius: '6px', border: '1px solid #d1d5db' }}>
                                   <p style={{ fontSize: '11px', fontWeight: '600', marginBottom: '6px' }}>Change Worker:</p>
                                   <select
                                     value={newWorkerId}
@@ -2065,7 +3027,7 @@ const AdminDashboard = () => {
                                         setEditingJobId(null);
                                         setNewWorkerId('');
                                       }}
-                                      style={{ flex: 1, padding: '4px', background: '#d1d5db', color: '#374151', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}
+                                      style={{ flex: 1, padding: '4px', background: '#d1d5db', color: theme.text, border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}
                                     >
                                       Cancel
                                     </button>
@@ -2149,10 +3111,10 @@ const AdminDashboard = () => {
     return (
       <div style={{ padding: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 'bold' }}>Today's Jobs <span style={{ fontSize: '16px', color: '#6b7280', fontWeight: 'normal' }}>({filteredJobs.length})</span></h2>
+          <h2 style={{ fontSize: '24px', fontWeight: 'bold' }}>Today's Jobs <span style={{ fontSize: '16px', color: theme.textSecondary, fontWeight: 'normal' }}>({filteredJobs.length})</span></h2>
           {/* Auto-refresh toggle */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'white', padding: '6px 10px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <span style={{ fontSize: '12px', color: '#6b7280' }}>Auto-refresh</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: theme.cardBg, padding: '6px 10px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <span style={{ fontSize: '12px', color: theme.textSecondary }}>Auto-refresh</span>
             <label style={{ position: 'relative', display: 'inline-block', width: '36px', height: '20px', cursor: 'pointer' }}>
               <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
               <span style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: autoRefresh ? '#10b981' : '#d1d5db', borderRadius: '20px', transition: 'background-color 0.2s' }}>
@@ -2161,26 +3123,26 @@ const AdminDashboard = () => {
             </label>
             {autoRefresh && <span style={{ fontSize: '10px', color: '#10b981' }}>●</span>}
           </div>
-          <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: '6px', padding: '2px' }}>
-            <button onClick={() => setViewModes({...viewModes, today: 'grid'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.today === 'grid' ? 'white' : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.today === 'grid' ? '#2563eb' : '#6b7280' }}>
+          <div style={{ display: 'flex', background: theme.hover, borderRadius: '6px', padding: '2px' }}>
+            <button onClick={() => setViewModes({...viewModes, today: 'grid'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.today === 'grid' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.today === 'grid' ? '#2563eb' : theme.textSecondary }}>
               <Grid3x3 size={14} /> Grid
             </button>
-            <button onClick={() => setViewModes({...viewModes, today: 'list'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.today === 'list' ? 'white' : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.today === 'list' ? '#2563eb' : '#6b7280' }}>
+            <button onClick={() => setViewModes({...viewModes, today: 'list'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.today === 'list' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.today === 'list' ? '#2563eb' : theme.textSecondary }}>
               <List size={14} /> List
             </button>
           </div>
         </div>
-        <div style={{ marginBottom: '12px' }}><SearchBar value={searchTerm} onChange={handleSearchChange} /></div>
+        <div style={{ marginBottom: '12px' }}><SearchBar value={searchTerm} onChange={handleSearchChange} theme={theme} /></div>
 
         {filteredJobs.length === 0 ? (
-          <p style={{ textAlign: 'center', color: '#6b7280', padding: '40px' }}>No jobs scheduled for today</p>
+          <p style={{ textAlign: 'center', color: theme.textSecondary, padding: '40px' }}>No jobs scheduled for today</p>
         ) : viewModes.today === 'grid' ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px' }}>
             {filteredJobs.map(job => (
-              <div key={job.id} style={{ background: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', border: job.is_vip ? '2px solid #fbbf24' : '1px solid #e5e7eb' }}>
+              <div key={job.id} style={{ background: theme.cardBg, borderRadius: '12px', padding: '16px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', border: job.is_vip ? '2px solid #fbbf24' : '1px solid #e5e7eb' }}>
                 {job.is_vip && <span style={{ fontSize: '10px', background: '#fef3c7', color: '#92400e', padding: '2px 6px', borderRadius: '4px', marginBottom: '8px', display: 'inline-block' }}>⭐ VIP</span>}
                 <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '8px' }}>{job.properties?.property_name}</h3>
-                <p style={{ color: '#6b7280', marginBottom: '4px', fontSize: '13px' }}>👤 {job.workers?.name}</p>
+                <p style={{ color: theme.textSecondary, marginBottom: '4px', fontSize: '13px' }}>👤 {job.workers?.name}</p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
                   <span style={{ padding: '4px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '500', background: job.status === 'completed' ? '#d1fae5' : job.status === 'in_progress' ? '#fef3c7' : '#dbeafe', color: job.status === 'completed' ? '#065f46' : job.status === 'in_progress' ? '#92400e' : '#1e40af' }}>
                     {job.status}
@@ -2191,9 +3153,9 @@ const AdminDashboard = () => {
             ))}
           </div>
         ) : (
-          <div style={{ background: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+          <div style={{ background: theme.cardBg, borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
             {/* Table Header */}
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1fr 1fr 0.8fr 60px', gap: '12px', padding: '10px 12px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', fontSize: '11px', fontWeight: '600', color: '#6b7280' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1fr 1fr 0.8fr 60px', gap: '12px', padding: '10px 12px', background: theme.hover, borderBottom: '1px solid #e5e7eb', fontSize: '11px', fontWeight: '600', color: theme.textSecondary }}>
               <div>Property</div>
               <div>Worker</div>
               <div>Status</div>
@@ -2249,7 +3211,7 @@ const AdminDashboard = () => {
                 </div>
 
                 {/* Time */}
-                <div style={{ fontSize: '11px', color: '#6b7280' }}>
+                <div style={{ fontSize: '11px', color: theme.textSecondary }}>
                   {job.actual_duration_minutes ? (
                     <span style={{ fontWeight: '600', color: '#059669' }}>
                       {job.actual_duration_minutes >= 60 ? `${Math.floor(job.actual_duration_minutes / 60)}h ${job.actual_duration_minutes % 60}m` : `${job.actual_duration_minutes}m`}
@@ -2360,11 +3322,11 @@ const AdminDashboard = () => {
     return (
       <div style={{ padding: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 'bold' }}>Completed Jobs</h2>
+          <h2 style={{ fontSize: '24px', fontWeight: 'bold' , color: theme.text }}>Completed Jobs</h2>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             {/* Auto-refresh toggle */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'white', padding: '6px 10px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-              <span style={{ fontSize: '12px', color: '#6b7280' }}>Auto-refresh</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: theme.cardBg, padding: '6px 10px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+              <span style={{ fontSize: '12px', color: theme.textSecondary }}>Auto-refresh</span>
               <label style={{ position: 'relative', display: 'inline-block', width: '36px', height: '20px', cursor: 'pointer' }}>
                 <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
                 <span style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: autoRefresh ? '#10b981' : '#d1d5db', borderRadius: '20px', transition: 'background-color 0.2s' }}>
@@ -2373,24 +3335,24 @@ const AdminDashboard = () => {
               </label>
               {autoRefresh && <span style={{ fontSize: '10px', color: '#10b981' }}>●</span>}
             </div>
-            <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: '6px', padding: '2px' }}>
-              <button onClick={() => setViewModes({...viewModes, completed: 'grid'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.completed === 'grid' ? 'white' : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.completed === 'grid' ? '#2563eb' : '#6b7280' }}>
+            <div style={{ display: 'flex', background: theme.hover, borderRadius: '6px', padding: '2px' }}>
+              <button onClick={() => setViewModes({...viewModes, completed: 'grid'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.completed === 'grid' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.completed === 'grid' ? '#2563eb' : theme.textSecondary }}>
                 <Grid3x3 size={14} /> Grid
               </button>
-              <button onClick={() => setViewModes({...viewModes, completed: 'list'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.completed === 'list' ? 'white' : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.completed === 'list' ? '#2563eb' : '#6b7280' }}>
+              <button onClick={() => setViewModes({...viewModes, completed: 'list'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.completed === 'list' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.completed === 'list' ? '#2563eb' : theme.textSecondary }}>
                 <List size={14} /> List
               </button>
             </div>
           </div>
         </div>
-        <div style={{ marginBottom: '12px' }}><SearchBar value={searchTerm} onChange={handleSearchChange} /></div>
+        <div style={{ marginBottom: '12px' }}><SearchBar value={searchTerm} onChange={handleSearchChange} theme={theme} /></div>
 
         {/* Filters */}
-        <div style={{ background: 'white', padding: '12px', borderRadius: '8px', marginBottom: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+        <div style={{ background: theme.cardBg, padding: '12px', borderRadius: '8px', marginBottom: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
           <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
             {/* Date Filter */}
             <div style={{ flex: '1', minWidth: '200px' }}>
-              <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '6px', display: 'block' }}>📅 Completed Date</label>
+              <label style={{ fontSize: '12px', fontWeight: '600', color: theme.text, marginBottom: '6px', display: 'block' }}>📅 Completed Date</label>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {[
                   { value: 'all', label: 'All Time' },
@@ -2420,7 +3382,7 @@ const AdminDashboard = () => {
 
             {/* Worker Filter */}
             <div style={{ flex: '1', minWidth: '200px' }}>
-              <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '6px', display: 'block' }}>👤 Worker</label>
+              <label style={{ fontSize: '12px', fontWeight: '600', color: theme.text, marginBottom: '6px', display: 'block' }}>👤 Worker</label>
               <select
                 value={workerFilter}
                 onChange={(e) => setWorkerFilter(e.target.value)}
@@ -2447,21 +3409,21 @@ const AdminDashboard = () => {
         {viewModes.completed === 'grid' ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px' }}>
           {completedJobs.filter(j => j.properties?.property_name.toLowerCase().includes(searchTerm.toLowerCase()) || j.workers?.name.toLowerCase().includes(searchTerm.toLowerCase())).map(job => (
-            <div key={job.id} style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+            <div key={job.id} style={{ background: theme.cardBg, borderRadius: '12px', padding: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', flexWrap: 'wrap' }}>
                 <h3 style={{ fontSize: '18px', fontWeight: 'bold' }}>{job.properties?.name}</h3>
                 <span style={{padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '500', background: '#d1fae5', color: '#065f46'}}>completed</span>
               </div>
-              <p style={{ color: '#6b7280', marginBottom: '5px', fontSize: '14px' }}>Worker: {job.workers?.name}</p>
-              <p style={{ color: '#6b7280', marginBottom: '5px', fontSize: '13px' }}>📅 {job.scheduled_date}</p>
+              <p style={{ color: theme.textSecondary, marginBottom: '5px', fontSize: '14px' }}>Worker: {job.workers?.name}</p>
+              <p style={{ color: theme.textSecondary, marginBottom: '5px', fontSize: '13px' }}>📅 {job.scheduled_date}</p>
               {job.started_at && <p style={{ fontSize: '12px', color: '#10b981', marginBottom: '4px' }}>▶ Started: {new Date(job.started_at).toLocaleString()}</p>}
               {job.finished_at && <p style={{ fontSize: '12px', color: '#059669', marginBottom: '8px', fontWeight: '600' }}>✓ Completed: {new Date(job.finished_at).toLocaleString()}</p>}
 
               {/* Time Tracking */}
               {(job.estimated_duration_minutes || job.actual_duration_minutes) && (
-                <div style={{ marginTop: '10px', padding: '10px', background: '#f9fafb', borderRadius: '8px', fontSize: '13px' }}>
+                <div style={{ marginTop: '10px', padding: '10px', background: theme.hover, borderRadius: '8px', fontSize: '13px' }}>
                   {job.estimated_duration_minutes && (
-                    <div style={{ marginBottom: '4px', color: '#6b7280' }}>
+                    <div style={{ marginBottom: '4px', color: theme.textSecondary }}>
                       ⏱️ Estimated: {job.estimated_duration_minutes >= 60 ? `${Math.floor(job.estimated_duration_minutes / 60)}h ${job.estimated_duration_minutes % 60}m` : `${job.estimated_duration_minutes}m`}
                     </div>
                   )}
@@ -2578,11 +3540,11 @@ const AdminDashboard = () => {
               </div>
             </div>
           ))}
-          {completedJobs.length === 0 && <p style={{ textAlign: 'center', color: '#6b7280', padding: '40px', gridColumn: '1 / -1' }}>No completed jobs yet</p>}
+          {completedJobs.length === 0 && <p style={{ textAlign: 'center', color: theme.textSecondary, padding: '40px', gridColumn: '1 / -1' }}>No completed jobs yet</p>}
         </div>
         ) : (
-          <div style={{ background: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1fr 1.5fr 1.5fr 80px 200px', gap: '12px', padding: '10px 12px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', fontSize: '11px', fontWeight: '600', color: '#6b7280' }}>
+          <div style={{ background: theme.cardBg, borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1fr 1.5fr 1.5fr 80px 200px', gap: '12px', padding: '10px 12px', background: theme.hover, borderBottom: '1px solid #e5e7eb', fontSize: '11px', fontWeight: '600', color: theme.textSecondary }}>
               <div>Property</div>
               <div>Worker</div>
               <div>Date</div>
@@ -2594,8 +3556,8 @@ const AdminDashboard = () => {
             {completedJobs.filter(j => j.properties?.property_name.toLowerCase().includes(searchTerm.toLowerCase()) || j.workers?.name.toLowerCase().includes(searchTerm.toLowerCase())).map(job => (
               <div key={job.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1fr 1.5fr 1.5fr 80px 200px', gap: '12px', padding: '12px', borderBottom: '1px solid #f3f4f6', fontSize: '13px', alignItems: 'center' }}>
                 <div style={{ fontWeight: '600' }}>{job.properties?.property_name}</div>
-                <div style={{ color: '#6b7280' }}>{job.workers?.name}</div>
-                <div style={{ color: '#6b7280', fontSize: '12px' }}>{job.scheduled_date}</div>
+                <div style={{ color: theme.textSecondary }}>{job.workers?.name}</div>
+                <div style={{ color: theme.textSecondary, fontSize: '12px' }}>{job.scheduled_date}</div>
                 <div style={{ color: '#10b981', fontSize: '11px' }}>{job.started_at ? new Date(job.started_at).toLocaleString() : 'N/A'}</div>
                 <div style={{ color: '#059669', fontSize: '11px', fontWeight: '600' }}>{job.finished_at ? new Date(job.finished_at).toLocaleString() : 'N/A'}</div>
                 <div style={{ textAlign: 'center' }}>
@@ -2639,7 +3601,7 @@ const AdminDashboard = () => {
                 </div>
               </div>
             ))}
-            {completedJobs.length === 0 && <p style={{ textAlign: 'center', color: '#6b7280', padding: '40px' }}>No completed jobs yet</p>}
+            {completedJobs.length === 0 && <p style={{ textAlign: 'center', color: theme.textSecondary, padding: '40px' }}>No completed jobs yet</p>}
           </div>
         )}
       </div>
@@ -2665,11 +3627,11 @@ const AdminDashboard = () => {
     return (
       <div style={{ padding: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 'bold' }}>Pending Jobs</h2>
+          <h2 style={{ fontSize: '24px', fontWeight: 'bold' , color: theme.text }}>Pending Jobs</h2>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             {/* Auto-refresh toggle */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'white', padding: '6px 10px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-              <span style={{ fontSize: '12px', color: '#6b7280' }}>Auto-refresh</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: theme.cardBg, padding: '6px 10px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+              <span style={{ fontSize: '12px', color: theme.textSecondary }}>Auto-refresh</span>
               <label style={{ position: 'relative', display: 'inline-block', width: '36px', height: '20px', cursor: 'pointer' }}>
                 <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
                 <span style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: autoRefresh ? '#10b981' : '#d1d5db', borderRadius: '20px', transition: 'background-color 0.2s' }}>
@@ -2678,35 +3640,35 @@ const AdminDashboard = () => {
               </label>
               {autoRefresh && <span style={{ fontSize: '10px', color: '#10b981' }}>●</span>}
             </div>
-            <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: '6px', padding: '2px' }}>
-              <button onClick={() => setViewModes({...viewModes, pending: 'grid'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.pending === 'grid' ? 'white' : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.pending === 'grid' ? '#2563eb' : '#6b7280' }}>
+            <div style={{ display: 'flex', background: theme.hover, borderRadius: '6px', padding: '2px' }}>
+              <button onClick={() => setViewModes({...viewModes, pending: 'grid'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.pending === 'grid' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.pending === 'grid' ? '#2563eb' : theme.textSecondary }}>
                 <Grid3x3 size={14} /> Grid
               </button>
-              <button onClick={() => setViewModes({...viewModes, pending: 'list'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.pending === 'list' ? 'white' : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.pending === 'list' ? '#2563eb' : '#6b7280' }}>
+              <button onClick={() => setViewModes({...viewModes, pending: 'list'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.pending === 'list' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.pending === 'list' ? '#2563eb' : theme.textSecondary }}>
                 <List size={14} /> List
               </button>
             </div>
           </div>
         </div>
-        <div style={{ marginBottom: '12px' }}><SearchBar value={searchTerm} onChange={handleSearchChange} /></div>
+        <div style={{ marginBottom: '12px' }}><SearchBar value={searchTerm} onChange={handleSearchChange} theme={theme} /></div>
 
         {viewModes.pending === 'grid' ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '15px' }}>
             {pendingJobs.filter(j => j.properties?.property_name.toLowerCase().includes(searchTerm.toLowerCase()) || j.workers?.name.toLowerCase().includes(searchTerm.toLowerCase())).map(job => (
-              <div key={job.id} style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+              <div key={job.id} style={{ background: theme.cardBg, borderRadius: '12px', padding: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', flexWrap: 'wrap' }}>
                   <h3 style={{ fontSize: '18px', fontWeight: 'bold' }}>{job.properties?.name}</h3>
                   <span style={{padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '500', background: '#dbeafe', color: '#1e40af'}}>assigned</span>
                 </div>
-                <p style={{ color: '#6b7280', marginBottom: '5px', fontSize: '14px' }}>Worker: {job.workers?.name}</p>
-                <p style={{ color: '#6b7280', fontSize: '13px' }}>📅 {job.scheduled_date}</p>
+                <p style={{ color: theme.textSecondary, marginBottom: '5px', fontSize: '14px' }}>Worker: {job.workers?.name}</p>
+                <p style={{ color: theme.textSecondary, fontSize: '13px' }}>📅 {job.scheduled_date}</p>
               </div>
             ))}
-            {pendingJobs.length === 0 && <p style={{ textAlign: 'center', color: '#6b7280', padding: '40px', gridColumn: '1 / -1' }}>No pending jobs</p>}
+            {pendingJobs.length === 0 && <p style={{ textAlign: 'center', color: theme.textSecondary, padding: '40px', gridColumn: '1 / -1' }}>No pending jobs</p>}
           </div>
         ) : (
-          <div style={{ background: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1.5fr', gap: '12px', padding: '10px 12px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', fontSize: '11px', fontWeight: '600', color: '#6b7280' }}>
+          <div style={{ background: theme.cardBg, borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1.5fr', gap: '12px', padding: '10px 12px', background: theme.hover, borderBottom: '1px solid #e5e7eb', fontSize: '11px', fontWeight: '600', color: theme.textSecondary }}>
               <div>Property</div>
               <div>Worker</div>
               <div>Scheduled Date</div>
@@ -2714,11 +3676,11 @@ const AdminDashboard = () => {
             {pendingJobs.filter(j => j.properties?.property_name.toLowerCase().includes(searchTerm.toLowerCase()) || j.workers?.name.toLowerCase().includes(searchTerm.toLowerCase())).map(job => (
               <div key={job.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1.5fr', gap: '12px', padding: '12px', borderBottom: '1px solid #f3f4f6', fontSize: '13px', alignItems: 'center' }}>
                 <div style={{ fontWeight: '600' }}>{job.properties?.property_name}</div>
-                <div style={{ color: '#6b7280' }}>{job.workers?.name}</div>
-                <div style={{ color: '#6b7280' }}>{job.scheduled_date}</div>
+                <div style={{ color: theme.textSecondary }}>{job.workers?.name}</div>
+                <div style={{ color: theme.textSecondary }}>{job.scheduled_date}</div>
               </div>
             ))}
-            {pendingJobs.length === 0 && <p style={{ textAlign: 'center', color: '#6b7280', padding: '40px' }}>No pending jobs</p>}
+            {pendingJobs.length === 0 && <p style={{ textAlign: 'center', color: theme.textSecondary, padding: '40px' }}>No pending jobs</p>}
           </div>
         )}
       </div>
@@ -2786,11 +3748,11 @@ const AdminDashboard = () => {
     return (
       <div style={{ padding: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>⏱️ Time Tracking</h2>
+          <h2 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0, color: theme.text }}>⏱️ Time Tracking</h2>
 
           {/* Auto-refresh toggle */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'white', padding: '8px 12px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <span style={{ fontSize: '14px', color: '#6b7280' }}>Auto-refresh (30s)</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: theme.cardBg, padding: '8px 12px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <span style={{ fontSize: '14px', color: theme.textSecondary }}>Auto-refresh (30s)</span>
             <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px', cursor: 'pointer' }}>
               <input
                 type="checkbox"
@@ -2830,7 +3792,7 @@ const AdminDashboard = () => {
           <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '12px' }}>📊 Worker Progress</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
             {workerProgress.map(({ worker, total, completed, percentage }) => (
-              <div key={worker.id} style={{ background: 'white', borderRadius: '8px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: percentage === 100 ? '2px solid #10b981' : 'none' }}>
+              <div key={worker.id} style={{ background: theme.cardBg, borderRadius: '8px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: percentage === 100 ? '2px solid #10b981' : 'none' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <h4 style={{ fontSize: '16px', fontWeight: '600', margin: 0 }}>
                     {worker.name}
@@ -2851,13 +3813,13 @@ const AdminDashboard = () => {
                   }}></div>
                 </div>
 
-                <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>
+                <p style={{ fontSize: '13px', color: theme.textSecondary, margin: 0 }}>
                   {completed} of {total} jobs completed
                 </p>
               </div>
             ))}
             {workerProgress.length === 0 && (
-              <p style={{ color: '#6b7280', padding: '20px' }}>No jobs assigned to workers</p>
+              <p style={{ color: theme.textSecondary, padding: '20px' }}>No jobs assigned to workers</p>
             )}
           </div>
         </div>
@@ -2880,21 +3842,21 @@ const AdminDashboard = () => {
           </h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
             {workerDailyTime.map(({ worker, totalMinutes, jobCount, jobs }) => (
-              <div key={worker.id} style={{ background: 'white', borderRadius: '8px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+              <div key={worker.id} style={{ background: theme.cardBg, borderRadius: '8px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <h4 style={{ fontSize: '16px', fontWeight: '600' }}>{worker.name}</h4>
                   <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#2563eb' }}>
                     {formatTime(totalMinutes)}
                   </span>
                 </div>
-                <p style={{ fontSize: '13px', color: '#6b7280' }}>{jobCount} jobs completed</p>
+                <p style={{ fontSize: '13px', color: theme.textSecondary }}>{jobCount} jobs completed</p>
                 <details style={{ marginTop: '8px' }}>
                   <summary style={{ cursor: 'pointer', fontSize: '12px', color: '#2563eb' }}>View jobs</summary>
                   <div style={{ marginTop: '8px', paddingLeft: '8px', borderLeft: '2px solid #e5e7eb' }}>
                     {jobs.map(job => (
                       <div key={job.id} style={{ fontSize: '12px', padding: '4px 0' }}>
                         <span style={{ fontWeight: '500' }}>{job.properties?.property_name}</span>
-                        <span style={{ color: '#6b7280', marginLeft: '8px' }}>
+                        <span style={{ color: theme.textSecondary, marginLeft: '8px' }}>
                           {formatTime(job.actual_duration_minutes)}
                         </span>
                       </div>
@@ -2904,7 +3866,7 @@ const AdminDashboard = () => {
               </div>
             ))}
             {workerDailyTime.length === 0 && (
-              <p style={{ color: '#6b7280', padding: '20px' }}>No completed jobs for this date</p>
+              <p style={{ color: theme.textSecondary, padding: '20px' }}>No completed jobs for this date</p>
             )}
           </div>
         </div>
@@ -2912,7 +3874,7 @@ const AdminDashboard = () => {
         {/* Total time (all time) */}
         <div>
           <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '12px' }}>Total Time (All Time)</h3>
-          <div style={{ background: 'white', borderRadius: '8px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <div style={{ background: theme.cardBg, borderRadius: '8px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
@@ -2930,7 +3892,7 @@ const AdminDashboard = () => {
                     <td style={{ padding: '12px', textAlign: 'right', fontWeight: '600', color: '#2563eb' }}>
                       {formatTime(totalMinutes)}
                     </td>
-                    <td style={{ padding: '12px', textAlign: 'right', color: '#6b7280' }}>
+                    <td style={{ padding: '12px', textAlign: 'right', color: theme.textSecondary }}>
                       {formatTime(Math.round(totalMinutes / jobCount))}
                     </td>
                   </tr>
@@ -2938,7 +3900,7 @@ const AdminDashboard = () => {
               </tbody>
             </table>
             {workerTotalTime.length === 0 && (
-              <p style={{ color: '#6b7280', padding: '20px', textAlign: 'center' }}>No completed jobs yet</p>
+              <p style={{ color: theme.textSecondary, padding: '20px', textAlign: 'center' }}>No completed jobs yet</p>
             )}
           </div>
         </div>
@@ -2947,9 +3909,56 @@ const AdminDashboard = () => {
   };
 
   const ReportedIssuesView = () => {
+    const [autoRefresh, setAutoRefresh] = useState(true);
+
+    useEffect(() => {
+      if (!autoRefresh) return;
+      const interval = setInterval(() => {
+        console.log('🔄 Auto-refreshing Issues data...');
+        loadAllData();
+      }, 30000);
+      return () => clearInterval(interval);
+    }, [autoRefresh]);
+
     return (
       <div style={{ padding: '20px' }}>
-        <h2 style={{ fontSize: '32px', fontWeight: 'bold', marginBottom: '20px' }}>⚠️ Reported Issues</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h2 style={{ fontSize: '32px', fontWeight: 'bold', margin: 0 }}>⚠️ Reported Issues</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: theme.cardBg, padding: '6px 10px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <span style={{ fontSize: '12px', color: theme.textSecondary }}>Auto-refresh</span>
+            <label style={{ position: 'relative', display: 'inline-block', width: '36px', height: '20px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={autoRefresh}
+                onChange={(e) => setAutoRefresh(e.target.checked)}
+                style={{ opacity: 0, width: 0, height: 0 }}
+              />
+              <span style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: autoRefresh ? '#10b981' : '#d1d5db',
+                borderRadius: '20px',
+                transition: 'background-color 0.2s'
+              }}>
+                <span style={{
+                  position: 'absolute',
+                  content: '""',
+                  height: '14px',
+                  width: '14px',
+                  left: autoRefresh ? '19px' : '3px',
+                  bottom: '3px',
+                  backgroundColor: 'white',
+                  borderRadius: '50%',
+                  transition: 'left 0.2s'
+                }}></span>
+              </span>
+            </label>
+            {autoRefresh && <span style={{ fontSize: '10px', color: '#10b981' }}>●</span>}
+          </div>
+        </div>
         <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
           <button
             onClick={() => loadIssues()}
@@ -2960,12 +3969,12 @@ const AdminDashboard = () => {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '15px' }}>
           {issues.map(issue => (
-            <div key={issue.id} style={{ background: issue.resolved ? '#f9fafb' : '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', border: issue.resolved ? '1px solid #e5e7eb' : '2px solid #f59e0b' }}>
+            <div key={issue.id} style={{ background: issue.resolved ? theme.hover : theme.cardBg, borderRadius: '12px', padding: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', border: issue.resolved ? `1px solid ${theme.border}` : '2px solid #f59e0b' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                 <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '600', background: issue.resolved ? '#d1fae5' : '#fef3c7', color: issue.resolved ? '#065f46' : '#92400e' }}>
                   {issue.resolved ? '✓ Resolved' : '⚠️ Active'}
                 </span>
-                <span style={{ fontSize: '12px', color: '#9ca3af' }}>
+                <span style={{ fontSize: '12px', color: theme.textSecondary }}>
                   {new Date(issue.created_at).toLocaleDateString()}
                 </span>
               </div>
@@ -2974,22 +3983,22 @@ const AdminDashboard = () => {
                 <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '6px' }}>
                   {issue.jobs?.properties?.property_name}
                 </h3>
-                <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '4px' }}>
+                <p style={{ fontSize: '13px', color: theme.textSecondary, marginBottom: '4px' }}>
                   📍 {issue.jobs?.properties?.address}
                 </p>
-                <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '4px' }}>
+                <p style={{ fontSize: '13px', color: theme.textSecondary, marginBottom: '4px' }}>
                   👷 Worker: {issue.jobs?.profiles?.full_name}
                 </p>
-                <p style={{ fontSize: '13px', color: '#6b7280' }}>
+                <p style={{ fontSize: '13px', color: theme.textSecondary }}>
                   📅 Job Date: {issue.jobs?.scheduled_date}
                 </p>
               </div>
 
-              <div style={{ background: '#f9fafb', padding: '12px', borderRadius: '8px', marginBottom: '12px' }}>
-                <p style={{ fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>
+              <div style={{ background: theme.hover, padding: '12px', borderRadius: '8px', marginBottom: '12px' }}>
+                <p style={{ fontSize: '13px', fontWeight: '600', color: theme.text, marginBottom: '6px' }}>
                   Issue Type: <span style={{ textTransform: 'capitalize', color: '#f59e0b' }}>{issue.issue_type}</span>
                 </p>
-                <p style={{ fontSize: '14px', color: '#374151', lineHeight: '1.5' }}>
+                <p style={{ fontSize: '14px', color: theme.text, lineHeight: '1.5' }}>
                   {issue.description}
                 </p>
               </div>
@@ -3005,7 +4014,7 @@ const AdminDashboard = () => {
             </div>
           ))}
           {issues.length === 0 && (
-            <p style={{ textAlign: 'center', color: '#6b7280', padding: '40px', gridColumn: '1 / -1' }}>
+            <p style={{ textAlign: 'center', color: theme.textSecondary, padding: '40px', gridColumn: '1 / -1' }}>
               No issues reported yet
             </p>
           )}
@@ -3041,7 +4050,7 @@ const AdminDashboard = () => {
           {selected ? selected[displayKey] : placeholder}
         </div>
         {isOpen && (
-          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '1px solid #d1d5db', borderRadius: '8px', marginTop: '4px', maxHeight: '200px', overflow: 'auto', zIndex: 10, boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: theme.cardBg, border: '1px solid #d1d5db', borderRadius: '8px', marginTop: '4px', maxHeight: '200px', overflow: 'auto', zIndex: 10, boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
             <input
               type="text"
               placeholder="Search..."
@@ -3066,7 +4075,7 @@ const AdminDashboard = () => {
               </div>
             ))}
             {filtered.length === 0 && (
-              <div style={{ padding: '10px', color: '#6b7280', textAlign: 'center' }}>No results found</div>
+              <div style={{ padding: '10px', color: theme.textSecondary, textAlign: 'center' }}>No results found</div>
             )}
           </div>
         )}
@@ -3074,15 +4083,185 @@ const AdminDashboard = () => {
     );
   };
 
+  // Theme colors
+  const theme = {
+    bg: darkTheme ? '#0f172a' : '#f3f4f6',
+    cardBg: darkTheme ? '#1e293b' : 'white',
+    text: darkTheme ? '#f1f5f9' : '#111827',
+    textSecondary: darkTheme ? '#94a3b8' : '#6b7280',
+    border: darkTheme ? '#334155' : '#e5e7eb',
+    hover: darkTheme ? '#334155' : '#f9fafb',
+    inputBg: darkTheme ? '#0f172a' : 'white',
+    inputBorder: darkTheme ? '#475569' : '#d1d5db'
+  };
+
+  // Custom Alert Component
+  const CustomAlert = () => {
+    if (!showAlert) return null;
+
+    const getIcon = () => {
+      switch (alertConfig.type) {
+        case 'success': return <div style={{ fontSize: '48px' }}>✅</div>;
+        case 'error': return <div style={{ fontSize: '48px' }}>❌</div>;
+        case 'warning': return <div style={{ fontSize: '48px' }}>⚠️</div>;
+        case 'confirm': return <div style={{ fontSize: '48px' }}>❓</div>;
+        default: return <div style={{ fontSize: '48px' }}>ℹ️</div>;
+      }
+    };
+
+    return (
+      <div style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0, 0, 0, 0.6)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 10000,
+        backdropFilter: 'blur(4px)'
+      }}>
+        <div style={{
+          background: darkTheme ? '#1f2937' : 'white',
+          borderRadius: '16px',
+          padding: '32px',
+          maxWidth: '500px',
+          width: '90%',
+          boxShadow: '0 25px 50px rgba(0,0,0,0.5)',
+          textAlign: 'center',
+          border: darkTheme ? '1px solid #374151' : 'none'
+        }}>
+          {getIcon()}
+
+          <h2 style={{
+            fontSize: '24px',
+            fontWeight: 'bold',
+            color: darkTheme ? '#f9fafb' : '#111827',
+            marginTop: '16px',
+            marginBottom: '12px'
+          }}>
+            {alertConfig.title}
+          </h2>
+
+          <p style={{
+            fontSize: '16px',
+            color: darkTheme ? '#d1d5db' : '#6b7280',
+            lineHeight: '1.6',
+            marginBottom: '24px',
+            whiteSpace: 'pre-line'
+          }}>
+            {alertConfig.message}
+          </p>
+
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+            {alertConfig.type === 'confirm' ? (
+              <>
+                <button
+                  onClick={() => {
+                    setShowAlert(false);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '14px 24px',
+                    background: darkTheme ? '#4b5563' : '#e5e7eb',
+                    color: darkTheme ? '#f9fafb' : '#374151',
+                    border: 'none',
+                    borderRadius: '10px',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                  onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (alertConfig.onConfirm) alertConfig.onConfirm();
+                    setShowAlert(false);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '14px 24px',
+                    background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '10px',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                  onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                >
+                  Confirm
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setShowAlert(false)}
+                style={{
+                  width: '100%',
+                  padding: '14px 24px',
+                  background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+              >
+                OK
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div style={{ minHeight: '100vh', background: '#f3f4f6' }}>
-      <div style={{ background: 'linear-gradient(to right, #2563eb, #1e40af)', color: 'white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', maxHeight: '60px' }}>
+    <div style={{ minHeight: '100vh', background: theme.bg }}>
+      <div style={{ background: '#000000', color: 'white', boxShadow: '0 2px 4px rgba(0,0,0,0.3)', maxHeight: '70px' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '12px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h1 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0 }}>Golden Angel Snow Removal</h1>
-            <p style={{ color: '#bfdbfe', marginTop: '2px', fontSize: '12px', margin: 0 }}>Admin Dashboard</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <img src="/logo.png" alt="Golden Angel Logo" style={{ height: '45px', width: '45px', objectFit: 'contain' }} />
+            <div>
+              <h1 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0 }}>
+                <span style={{ color: '#d4af37' }}>Golden</span> Angel Snow Removal Admin Dashboard
+              </h1>
+            </div>
           </div>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            {/* Theme Toggle */}
+            <button
+              onClick={() => setDarkTheme(!darkTheme)}
+              style={{
+                padding: '8px 16px',
+                background: 'rgba(255,255,255,0.2)',
+                color: 'white',
+                border: '1px solid rgba(255,255,255,0.3)',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.3s'
+              }}
+              title={darkTheme ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            >
+              {darkTheme ? '☀️' : '🌙'}
+            </button>
+
             {/* Notification Bell */}
             <div style={{ position: 'relative' }} data-notification-panel>
               <button
@@ -3099,13 +4278,13 @@ const AdminDashboard = () => {
 
               {/* Notification Dropdown */}
               {showNotifications && (
-                <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '8px', background: 'white', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', width: '360px', maxHeight: '400px', overflowY: 'auto', zIndex: 100 }}>
-                  <div style={{ padding: '16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold', color: '#1f2937' }}>🎉 Completions</h3>
+                <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '8px', background: theme.cardBg, borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', width: '360px', maxHeight: '400px', overflowY: 'auto', zIndex: 100 }}>
+                  <div style={{ padding: '16px', borderBottom: `1px solid ${theme.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold', color: theme.text }}>🎉 Completions</h3>
                     {completionNotifications.length > 0 && (
                       <button
                         onClick={() => setCompletionNotifications([])}
-                        style={{ padding: '4px 8px', background: '#f3f4f6', color: '#6b7280', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}
+                        style={{ padding: '4px 8px', background: theme.hover, color: theme.textSecondary, border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}
                       >
                         Clear All
                       </button>
@@ -3113,19 +4292,19 @@ const AdminDashboard = () => {
                   </div>
 
                   {completionNotifications.length === 0 ? (
-                    <div style={{ padding: '32px', textAlign: 'center', color: '#9ca3af' }}>
+                    <div style={{ padding: '32px', textAlign: 'center', color: theme.textSecondary }}>
                       <p style={{ margin: 0, fontSize: '14px' }}>No completion notifications</p>
                     </div>
                   ) : (
                     <div>
                       {completionNotifications.map((notif, index) => (
-                        <div key={notif.id} style={{ padding: '16px', borderBottom: index < completionNotifications.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                        <div key={notif.id} style={{ padding: '16px', borderBottom: index < completionNotifications.length - 1 ? `1px solid ${theme.border}` : 'none' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
                             <div style={{ flex: 1 }}>
-                              <p style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>
+                              <p style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: theme.text }}>
                                 ✅ {notif.workerName}
                               </p>
-                              <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#6b7280' }}>
+                              <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: theme.textSecondary }}>
                                 Completed all {notif.totalJobs} jobs
                               </p>
                               <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#9ca3af' }}>
@@ -3161,12 +4340,12 @@ const AdminDashboard = () => {
           </div>
         </div>
       </div>
-      <div style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', position: 'sticky', top: 0, zIndex: 10 }}>
+      <div style={{ background: theme.cardBg, boxShadow: '0 1px 3px rgba(0,0,0,0.1)', position: 'sticky', top: 0, zIndex: 10, borderBottom: `1px solid ${theme.border}` }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px', display: 'flex', gap: '24px', overflowX: 'auto' }}>
-          {['dashboard', 'workers', 'clients', 'properties', 'jobs', 'today', 'completed', 'pending', 'tracking'].map(tab => (
-            <button key={tab} onClick={() => { setActiveTab(tab); setSearchTerm(''); }} style={{padding: '12px 16px', border: 'none', background: 'none', cursor: 'pointer', fontWeight: '500', textTransform: 'capitalize', borderBottom: activeTab === tab ? '2px solid #2563eb' : '2px solid transparent', color: activeTab === tab ? '#2563eb' : '#6b7280', transition: 'all 0.2s', whiteSpace: 'nowrap'}}>{tab === 'tracking' ? 'Time Tracking' : tab}</button>
+          {['dashboard', 'workers', 'clients', 'properties', 'jobs', 'map', 'tracking', 'others'].map(tab => (
+            <button key={tab} onClick={() => { setActiveTab(tab); setSearchTerm(''); }} style={{padding: '12px 16px', border: 'none', background: 'none', cursor: 'pointer', fontWeight: '500', textTransform: 'capitalize', borderBottom: activeTab === tab ? '2px solid #2563eb' : '2px solid transparent', color: activeTab === tab ? '#2563eb' : theme.textSecondary, transition: 'all 0.2s', whiteSpace: 'nowrap'}}>{tab === 'tracking' ? 'Worker Tracking' : tab}</button>
           ))}
-          <button onClick={() => { setActiveTab('issues'); setSearchTerm(''); }} style={{padding: '16px', border: 'none', background: 'none', cursor: 'pointer', fontWeight: '500', textTransform: 'capitalize', borderBottom: activeTab === 'issues' ? '2px solid #2563eb' : '2px solid transparent', color: activeTab === 'issues' ? '#2563eb' : '#6b7280', transition: 'all 0.2s', whiteSpace: 'nowrap', position: 'relative'}}>
+          <button onClick={() => { setActiveTab('issues'); setSearchTerm(''); }} style={{padding: '16px', border: 'none', background: 'none', cursor: 'pointer', fontWeight: '500', textTransform: 'capitalize', borderBottom: activeTab === 'issues' ? '2px solid #2563eb' : '2px solid transparent', color: activeTab === 'issues' ? '#2563eb' : theme.textSecondary, transition: 'all 0.2s', whiteSpace: 'nowrap', position: 'relative'}}>
             Issues
             {issues.filter(i => !i.resolved).length > 0 && (
               <span style={{ position: 'absolute', top: '8px', right: '4px', background: '#ef4444', color: 'white', borderRadius: '10px', padding: '2px 6px', fontSize: '11px', fontWeight: 'bold', minWidth: '18px', textAlign: 'center' }}>
@@ -3175,12 +4354,38 @@ const AdminDashboard = () => {
             )}
           </button>
         </div>
+        {activeTab === 'others' && (
+          <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px', borderTop: '1px solid #e5e7eb' }}>
+            <div style={{ display: 'flex', gap: '12px', paddingTop: '8px', paddingBottom: '8px' }}>
+              {['today', 'completed', 'pending', 'tracking'].map(subTab => (
+                <button
+                  key={subTab}
+                  onClick={() => setOthersSubTab(subTab)}
+                  style={{
+                    padding: '6px 12px',
+                    border: 'none',
+                    background: othersSubTab === subTab ? '#eff6ff' : 'transparent',
+                    cursor: 'pointer',
+                    fontWeight: '500',
+                    textTransform: 'capitalize',
+                    borderRadius: '6px',
+                    color: othersSubTab === subTab ? '#2563eb' : '#6b7280',
+                    fontSize: '14px',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {subTab === 'tracking' ? 'Time Tracking' : subTab}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         {loading ? (
           <div style={{ textAlign: 'center', padding: '60px 0' }}>
             <div style={{ display: 'inline-block', width: '48px', height: '48px', border: '4px solid #e5e7eb', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-            <p style={{ marginTop: '16px', color: '#6b7280' }}>Loading...</p>
+            <p style={{ marginTop: '16px', color: theme.textSecondary }}>Loading...</p>
           </div>
         ) : (
           <>
@@ -3189,10 +4394,16 @@ const AdminDashboard = () => {
             {activeTab === 'clients' && <ClientsView />}
             {activeTab === 'properties' && <PropertiesView />}
             {activeTab === 'jobs' && <JobsView />}
-            {activeTab === 'today' && <TodayJobsView />}
-            {activeTab === 'completed' && <CompletedJobsView />}
-            {activeTab === 'pending' && <PendingJobsView />}
-            {activeTab === 'tracking' && <TimeTrackingView />}
+            {activeTab === 'map' && <MapView />}
+            {activeTab === 'tracking' && <WorkerTrackingView />}
+            {activeTab === 'others' && (
+              <>
+                {othersSubTab === 'today' && <TodayJobsView />}
+                {othersSubTab === 'completed' && <CompletedJobsView />}
+                {othersSubTab === 'pending' && <PendingJobsView />}
+                {othersSubTab === 'tracking' && <TimeTrackingView />}
+              </>
+            )}
             {activeTab === 'issues' && <ReportedIssuesView />}
           </>
         )}
@@ -3201,7 +4412,7 @@ const AdminDashboard = () => {
       {/* Worker Modal */}
       {showWorkerModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-          <div style={{ background: 'white', borderRadius: '12px', padding: '32px', maxWidth: '500px', width: '90%' }}>
+          <div style={{ background: theme.cardBg, borderRadius: '12px', padding: '32px', maxWidth: '500px', width: '90%' }}>
             <h3 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '24px' }}>{editingItem ? 'Edit Worker' : 'Add New Worker'}</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <input type="text" placeholder="Full Name *" value={workerForm.name} onChange={(e) => setWorkerForm({...workerForm, name: e.target.value})} style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px' }} />
@@ -3210,13 +4421,13 @@ const AdminDashboard = () => {
               {!editingItem && (
                 <>
                   <input type="password" placeholder="Password * (min. 6 characters)" value={workerForm.password} onChange={(e) => setWorkerForm({...workerForm, password: e.target.value})} style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px' }} />
-                  <p style={{ fontSize: '13px', color: '#6b7280', margin: '0', padding: '0 4px' }}>⚠️ Save this password - you'll need to share it with the worker</p>
+                  <p style={{ fontSize: '13px', color: theme.textSecondary, margin: '0', padding: '0 4px' }}>⚠️ Save this password - you'll need to share it with the worker</p>
                 </>
               )}
             </div>
             <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
               <button onClick={addOrUpdateWorker} style={{ flex: 1, background: '#2563eb', color: 'white', padding: '14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '500', fontSize: '16px' }}>{editingItem ? 'Update' : 'Add'} Worker</button>
-              <button onClick={() => { setShowWorkerModal(false); setEditingItem(null); setWorkerForm({ name: '', email: '', phone: '', password: '' }); }} style={{ flex: 1, background: '#d1d5db', color: '#374151', padding: '14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '500', fontSize: '16px' }}>Cancel</button>
+              <button onClick={() => { setShowWorkerModal(false); setEditingItem(null); setWorkerForm({ name: '', email: '', phone: '', password: '' }); }} style={{ flex: 1, background: '#d1d5db', color: theme.text, padding: '14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '500', fontSize: '16px' }}>Cancel</button>
             </div>
           </div>
         </div>
@@ -3225,7 +4436,7 @@ const AdminDashboard = () => {
       {/* Client Modal */}
       {showClientModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-          <div style={{ background: 'white', borderRadius: '12px', padding: '32px', maxWidth: '500px', width: '90%' }}>
+          <div style={{ background: theme.cardBg, borderRadius: '12px', padding: '32px', maxWidth: '500px', width: '90%' }}>
             <h3 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '24px' }}>{editingItem ? 'Edit Client' : 'Add New Client'}</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <input type="text" placeholder="Client Name *" value={clientForm.name} onChange={(e) => setClientForm({...clientForm, name: e.target.value})} style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px' }} />
@@ -3234,7 +4445,7 @@ const AdminDashboard = () => {
             </div>
             <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
               <button onClick={addOrUpdateClient} style={{ flex: 1, background: '#16a34a', color: 'white', padding: '14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '500', fontSize: '16px' }}>{editingItem ? 'Update' : 'Add'} Client</button>
-              <button onClick={() => { setShowClientModal(false); setEditingItem(null); setClientForm({ name: '', email: '', phone: '' }); }} style={{ flex: 1, background: '#d1d5db', color: '#374151', padding: '14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '500', fontSize: '16px' }}>Cancel</button>
+              <button onClick={() => { setShowClientModal(false); setEditingItem(null); setClientForm({ name: '', email: '', phone: '' }); }} style={{ flex: 1, background: '#d1d5db', color: theme.text, padding: '14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '500', fontSize: '16px' }}>Cancel</button>
             </div>
           </div>
         </div>
@@ -3243,9 +4454,9 @@ const AdminDashboard = () => {
       {/* Bulk Client Import Modal */}
       {showBulkClientModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-          <div style={{ background: 'white', borderRadius: '12px', padding: '32px', maxWidth: '600px', width: '90%' }}>
+          <div style={{ background: theme.cardBg, borderRadius: '12px', padding: '32px', maxWidth: '600px', width: '90%' }}>
             <h3 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '16px' }}>Bulk Import Clients</h3>
-            <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '16px' }}>
+            <p style={{ color: theme.textSecondary, fontSize: '14px', marginBottom: '16px' }}>
               Enter one client per line. Format: Name, Email, Phone (separated by commas or tabs)
               <br />
               <span style={{ fontSize: '12px', fontStyle: 'italic' }}>Example: John Doe, john@email.com, 123-456-7890</span>
@@ -3260,7 +4471,7 @@ const AdminDashboard = () => {
               <button onClick={bulkImportClients} style={{ flex: 1, background: '#0891b2', color: 'white', padding: '14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '500', fontSize: '16px' }}>
                 Import Clients
               </button>
-              <button onClick={() => { setShowBulkClientModal(false); setBulkClientText(''); }} style={{ flex: 1, background: '#d1d5db', color: '#374151', padding: '14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '500', fontSize: '16px' }}>
+              <button onClick={() => { setShowBulkClientModal(false); setBulkClientText(''); }} style={{ flex: 1, background: '#d1d5db', color: theme.text, padding: '14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '500', fontSize: '16px' }}>
                 Cancel
               </button>
             </div>
@@ -3271,13 +4482,13 @@ const AdminDashboard = () => {
       {/* Client Report Modal */}
       {showClientReportModal && clientReportData && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '15px' }}>
-          <div style={{ background: 'white', borderRadius: '12px', padding: '35px', maxWidth: '1200px', width: '100%', maxHeight: '95vh', overflow: 'auto' }}>
+          <div style={{ background: theme.cardBg, borderRadius: '12px', padding: '35px', maxWidth: '1200px', width: '100%', maxHeight: '95vh', overflow: 'auto' }}>
             <div id="printable-report" style={{ lineHeight: '1.2' }}>
               <h3 style={{ fontSize: '22px', fontWeight: 'bold', marginBottom: '12px', color: '#0891b2', textAlign: 'center', lineHeight: '1.2' }}>Golden Angel Snow Removal - Service Completion Report</h3>
 
               {clientReportData.photos.length > 0 && (
                 <div style={{ marginBottom: '12px' }}>
-                  <h4 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '8px', color: '#374151', lineHeight: '1.2' }}>Service Photos ({clientReportData.photos.length})</h4>
+                  <h4 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '8px', color: theme.text, lineHeight: '1.2' }}>Service Photos ({clientReportData.photos.length})</h4>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
                     {(() => {
                       const sortedPhotos = [...clientReportData.photos].sort((a, b) => {
@@ -3308,8 +4519,8 @@ const AdminDashboard = () => {
               </div>
 
               <div style={{ marginTop: '12px', paddingTop: '8px', borderTop: '2px solid #e5e7eb', textAlign: 'center' }}>
-                <p style={{ fontSize: '14px', color: '#374151', fontWeight: '600', marginBottom: '4px', lineHeight: '1.2' }}>Thank you for choosing Golden Angel Snow Removal!</p>
-                <p style={{ fontSize: '13px', color: '#374151', marginTop: '4px', lineHeight: '1.2' }}>⭐ Leave us a Google Review</p>
+                <p style={{ fontSize: '14px', color: theme.text, fontWeight: '600', marginBottom: '4px', lineHeight: '1.2' }}>Thank you for choosing Golden Angel Snow Removal!</p>
+                <p style={{ fontSize: '13px', color: theme.text, marginTop: '4px', lineHeight: '1.2' }}>⭐ Leave us a Google Review</p>
                 <p style={{ fontSize: '11px', color: '#2563eb', marginTop: '2px', wordBreak: 'break-all', lineHeight: '1.2' }}>https://g.page/r/CWZ0JZAAwLz3EBM/review</p>
                 <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '6px', lineHeight: '1.2' }}>Report generated on {new Date().toLocaleDateString()}</p>
               </div>
@@ -3330,7 +4541,7 @@ const AdminDashboard = () => {
               </button>
               <button
                 onClick={() => setShowClientReportModal(false)}
-                style={{ flex: 1, background: '#d1d5db', color: '#374151', padding: '14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '500', fontSize: '15px' }}
+                style={{ flex: 1, background: '#d1d5db', color: theme.text, padding: '14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '500', fontSize: '15px' }}
               >
                 Close
               </button>
@@ -3391,7 +4602,7 @@ const AdminDashboard = () => {
       {/* Property Modal */}
       {showPropertyModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, overflow: 'auto' }}>
-          <div style={{ background: 'white', borderRadius: '12px', padding: '32px', maxWidth: '600px', width: '90%', margin: '20px', maxHeight: '90vh', overflow: 'auto' }}>
+          <div style={{ background: theme.cardBg, borderRadius: '12px', padding: '32px', maxWidth: '600px', width: '90%', margin: '20px', maxHeight: '90vh', overflow: 'auto' }}>
             <h3 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '24px' }}>{editingItem ? 'Edit Property' : 'Add New Property'}</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <SearchableDropdown
@@ -3401,6 +4612,30 @@ const AdminDashboard = () => {
                 placeholder="Select Client *"
                 displayKey="name"
               />
+
+              <div>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: theme.text }}>
+                  Property Group (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Type to search or create new group"
+                  value={propertyForm.property_group || ''}
+                  onChange={(e) => setPropertyForm({...propertyForm, property_group: e.target.value})}
+                  list="group-suggestions"
+                  style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px', width: '100%' }}
+                />
+                <datalist id="group-suggestions">
+                  <option value="">No Group (Ungrouped)</option>
+                  {propertyGroups.map(group => (
+                    <option key={group} value={group} />
+                  ))}
+                </datalist>
+                <p style={{ fontSize: '12px', color: theme.textSecondary, marginTop: '4px' }}>
+                  Select existing group or type new name to create one
+                </p>
+              </div>
+
               <input type="text" placeholder="Property Name (Optional)" value={propertyForm.property_name} onChange={(e) => setPropertyForm({...propertyForm, property_name: e.target.value})} style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px' }} />
 
               <div>
@@ -3423,7 +4658,7 @@ const AdminDashboard = () => {
                 <input type="file" accept="image/*" onChange={uploadPropertyPhoto} id="photo-upload" style={{ display: 'none' }} multiple />
                 <label htmlFor="photo-upload" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
                   <Upload size={32} color="#6b7280" />
-                  <span style={{ color: '#6b7280', fontSize: '14px' }}>Click to upload property photos (multiple allowed)</span>
+                  <span style={{ color: theme.textSecondary, fontSize: '14px' }}>Click to upload property photos (multiple allowed)</span>
                 </label>
                 {propertyForm.highlight_photos.length > 0 && (
                   <div style={{ marginTop: '12px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
@@ -3461,8 +4696,8 @@ const AdminDashboard = () => {
                   <button onClick={addCustomChecklistItem} style={{ padding: '8px 16px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px' }}>+ Add</button>
                 </div>
                 {selectedChecklistItems.length > 0 && (
-                  <div style={{ marginTop: '12px', padding: '12px', background: '#f9fafb', borderRadius: '6px' }}>
-                    <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>Selected services ({selectedChecklistItems.length}):</p>
+                  <div style={{ marginTop: '12px', padding: '12px', background: theme.hover, borderRadius: '6px' }}>
+                    <p style={{ fontSize: '12px', color: theme.textSecondary, marginBottom: '8px' }}>Selected services ({selectedChecklistItems.length}):</p>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                       {selectedChecklistItems.map(item => (
                         <span key={item} style={{ padding: '4px 8px', background: '#dbeafe', color: '#1e40af', borderRadius: '12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -3477,7 +4712,283 @@ const AdminDashboard = () => {
             </div>
             <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
               <button onClick={addOrUpdateProperty} style={{ flex: 1, background: '#9333ea', color: 'white', padding: '14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '500', fontSize: '16px' }}>{editingItem ? 'Update' : 'Add'} Property</button>
-              <button onClick={() => { setShowPropertyModal(false); setEditingItem(null); setSelectedChecklistItems([]); setPropertyForm({ client_id: '', property_name: '', address: '', latitude: '', longitude: '', highlight_photos: [], special_notes: '', checklist: [] }); }} style={{ flex: 1, background: '#d1d5db', color: '#374151', padding: '14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '500', fontSize: '16px' }}>Cancel</button>
+              <button onClick={() => { setShowPropertyModal(false); setEditingItem(null); setSelectedChecklistItems([]); setPropertyForm({ client_id: '', property_name: '', address: '', latitude: '', longitude: '', highlight_photos: [], special_notes: '', checklist: [] }); }} style={{ flex: 1, background: '#d1d5db', color: theme.text, padding: '14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '500', fontSize: '16px' }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Import Client+Property Modal */}
+      {showBulkImportModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div style={{ background: theme.cardBg, borderRadius: '12px', padding: '32px', maxWidth: '800px', width: '90%', maxHeight: '90vh', overflow: 'auto' }}>
+            <h3 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '16px' }}>Bulk Import Clients + Properties</h3>
+
+            <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
+              <p style={{ fontSize: '14px', color: '#0c4a6e', marginBottom: '8px', fontWeight: '600' }}>
+                CSV Format (one property per line):
+              </p>
+              <code style={{ display: 'block', fontSize: '12px', fontFamily: 'monospace', background: theme.cardBg, padding: '8px', borderRadius: '4px', overflowX: 'auto', whiteSpace: 'pre' }}>
+Client Name,Email,Phone,Address,Special Notes,Checklist Items{'\n'}
+John Doe,john@email.com,555-1234,123 Main St,Gate code 1234,"Driveway,Front steps"{'\n'}
+John Doe,john@email.com,555-1234,456 Oak Ave,,{'\n'}
+Jane Smith,jane@email.com,555-5678,789 Pine Rd,Call before arrival,
+              </code>
+              <p style={{ fontSize: '12px', color: '#16a34a', marginTop: '8px', fontWeight: '600' }}>
+                ✓ Addresses are automatically geocoded (lat/lng added automatically)
+              </p>
+              <p style={{ fontSize: '12px', color: '#075985', marginTop: '4px' }}>
+                ℹ️ Same client on multiple rows = multiple properties for that client
+              </p>
+              <p style={{ fontSize: '12px', color: '#075985', marginTop: '4px' }}>
+                ℹ️ Checklist items are optional - you can add them later via Edit
+              </p>
+              <p style={{ fontSize: '12px', color: '#ea580c', marginTop: '4px' }}>
+                ⚠️ Photos must be added manually after import (use Edit button)
+              </p>
+            </div>
+
+            <textarea
+              placeholder="Paste CSV data here..."
+              value={bulkImportText}
+              onChange={(e) => {
+                setBulkImportText(e.target.value);
+                setBulkImportPreview(null); // Clear preview on edit
+              }}
+              style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '14px', minHeight: '200px', fontFamily: 'monospace' }}
+            />
+
+            <button
+              onClick={() => {
+                const preview = parseBulkImport(bulkImportText);
+                setBulkImportPreview(preview);
+              }}
+              disabled={!bulkImportText.trim()}
+              style={{ marginTop: '12px', padding: '10px 20px', background: bulkImportText.trim() ? '#2563eb' : '#9ca3af', color: 'white', border: 'none', borderRadius: '6px', cursor: bulkImportText.trim() ? 'pointer' : 'not-allowed', fontSize: '14px', fontWeight: '500' }}
+            >
+              Preview Import
+            </button>
+
+            {bulkImportPreview && (
+              <div style={{ marginTop: '16px', padding: '16px', background: theme.hover, borderRadius: '8px' }}>
+                <h4 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px' }}>Preview:</h4>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                  <div style={{ padding: '12px', background: theme.cardBg, borderRadius: '6px' }}>
+                    <p style={{ fontSize: '14px', fontWeight: '600', color: '#16a34a' }}>
+                      ✓ {bulkImportPreview.clients.length} unique clients
+                    </p>
+                  </div>
+                  <div style={{ padding: '12px', background: theme.cardBg, borderRadius: '6px' }}>
+                    <p style={{ fontSize: '14px', fontWeight: '600', color: '#7c3aed' }}>
+                      ✓ {bulkImportPreview.properties.length} properties
+                    </p>
+                  </div>
+                </div>
+
+                {bulkImportPreview.errors.length > 0 && (
+                  <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px', marginTop: '12px' }}>
+                    <h4 style={{ color: '#dc2626', fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
+                      ⚠️ Found {bulkImportPreview.errors.length} errors:
+                    </h4>
+                    <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', color: '#991b1b' }}>
+                      {bulkImportPreview.errors.map((err, i) => <li key={i}>{err}</li>)}
+                    </ul>
+                  </div>
+                )}
+
+                <details style={{ marginTop: '12px' }}>
+                  <summary style={{ cursor: 'pointer', fontSize: '14px', fontWeight: '500', color: theme.text }}>
+                    View Details
+                  </summary>
+                  <div style={{ marginTop: '8px', maxHeight: '200px', overflow: 'auto', fontSize: '12px' }}>
+                    {bulkImportPreview.clients.map((c, i) => {
+                      const propsCount = bulkImportPreview.properties.filter(p => p.clientKey === `${c.name.toLowerCase()}|${c.email.toLowerCase()}`).length;
+                      return (
+                        <div key={i} style={{ padding: '6px', borderBottom: '1px solid #e5e7eb' }}>
+                          <strong>{c.name}</strong> - {c.email} - {propsCount} {propsCount === 1 ? 'property' : 'properties'}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </details>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+              <button
+                onClick={executeBulkImport}
+                disabled={!bulkImportPreview || bulkImportPreview.errors.length > 0 || bulkImportProcessing}
+                style={{
+                  flex: 1,
+                  background: (!bulkImportPreview || bulkImportPreview.errors.length > 0 || bulkImportProcessing) ? '#9ca3af' : '#7c3aed',
+                  color: 'white',
+                  padding: '14px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  cursor: (!bulkImportPreview || bulkImportPreview.errors.length > 0 || bulkImportProcessing) ? 'not-allowed' : 'pointer',
+                  fontWeight: '500',
+                  fontSize: '16px'
+                }}
+              >
+                {bulkImportProcessing ? 'Importing...' : 'Import Now'}
+              </button>
+              <button
+                onClick={() => { setShowBulkImportModal(false); setBulkImportText(''); setBulkImportPreview(null); }}
+                style={{ flex: 1, background: '#d1d5db', color: theme.text, padding: '14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '500', fontSize: '16px' }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Group Management Modal */}
+      {showGroupModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', zIndex: 50, overflow: 'auto', paddingTop: '20px', paddingRight: '20px' }}>
+          <div style={{ background: theme.cardBg, borderRadius: '12px', padding: '24px', maxWidth: '600px', width: '600px', maxHeight: '95vh', overflow: 'auto', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
+            <h3 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '24px' }}>
+              {editingGroup ? `Edit Group: ${editingGroup}` : 'Create Property Group'}
+            </h3>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Group Name Input */}
+              <div>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
+                  Group Name *
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., North Zone, Downtown, Industrial Park"
+                  value={groupForm.name}
+                  onChange={(e) => setGroupForm({...groupForm, name: e.target.value})}
+                  maxLength={100}
+                  style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px' }}
+                />
+                <p style={{ fontSize: '12px', color: theme.textSecondary, marginTop: '4px' }}>
+                  {groupForm.name.length}/100 characters
+                </p>
+              </div>
+
+              {/* Proximity Radius Slider */}
+              <div style={{ background: theme.hover, padding: '16px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
+                  Proximity Suggestion Radius: {proximityRadius} km
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="30"
+                  value={proximityRadius}
+                  onChange={(e) => {
+                    setProximityRadius(parseInt(e.target.value));
+                    if (groupForm.selectedPropertyIds.length > 0) {
+                      const suggestions = findNearbyProperties(groupForm.selectedPropertyIds, parseInt(e.target.value));
+                      setProximitySuggestions(suggestions);
+                    }
+                  }}
+                  style={{ width: '100%' }}
+                />
+                <p style={{ fontSize: '12px', color: theme.textSecondary, marginTop: '4px' }}>
+                  Properties within this radius will be suggested based on your selection
+                </p>
+              </div>
+
+              {/* Property Selection */}
+              <div>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
+                  Select Properties * ({groupForm.selectedPropertyIds.length} selected)
+                </label>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {/* All Properties */}
+                  <div>
+                    <h4 style={{ fontSize: '13px', fontWeight: '600', color: theme.text, marginBottom: '8px' }}>
+                      All Properties ({properties.length})
+                    </h4>
+                    <div style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '8px', maxHeight: '250px', overflow: 'auto', background: 'white' }}>
+                      {properties.map(p => (
+                        <label
+                          key={p.id}
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', cursor: 'pointer', borderRadius: '6px', background: groupForm.selectedPropertyIds.includes(p.id) ? '#dbeafe' : 'transparent', marginBottom: '4px' }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={groupForm.selectedPropertyIds.includes(p.id)}
+                            onChange={(e) => handlePropertySelectionInGroup(p.id, e.target.checked)}
+                          />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '13px', fontWeight: '500' }}>{p.property_name}</div>
+                            <div style={{ fontSize: '11px', color: theme.textSecondary }}>{p.address}</div>
+                            {p.property_group && (
+                              <div style={{ fontSize: '10px', color: '#9333ea', marginTop: '2px' }}>
+                                Currently in: {p.property_group}
+                              </div>
+                            )}
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Proximity Suggestions */}
+                  <div>
+                    <h4 style={{ fontSize: '13px', fontWeight: '600', color: '#10b981', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      📍 Nearby Suggestions ({proximitySuggestions.length})
+                    </h4>
+                    {proximitySuggestions.length > 0 ? (
+                      <div style={{ border: '2px solid #10b981', borderRadius: '8px', padding: '8px', maxHeight: '200px', overflow: 'auto', background: '#f0fdf4' }}>
+                        {proximitySuggestions.map(({ property, distance }) => (
+                          <label
+                            key={property.id}
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', cursor: 'pointer', borderRadius: '6px', background: groupForm.selectedPropertyIds.includes(property.id) ? '#bbf7d0' : 'white', marginBottom: '4px', border: '1px solid #d1fae5' }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={groupForm.selectedPropertyIds.includes(property.id)}
+                              onChange={(e) => handlePropertySelectionInGroup(property.id, e.target.checked)}
+                            />
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: '13px', fontWeight: '500' }}>{property.property_name}</div>
+                              <div style={{ fontSize: '11px', color: '#059669', fontWeight: '600' }}>
+                                {distance.toFixed(1)} km away
+                              </div>
+                              <div style={{ fontSize: '10px', color: theme.textSecondary }}>{property.address}</div>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '20px', textAlign: 'center', color: theme.textSecondary, fontSize: '13px', background: theme.hover }}>
+                        {groupForm.selectedPropertyIds.length === 0
+                          ? 'Select properties to see nearby suggestions'
+                          : 'No nearby properties found within radius'}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+              <button
+                onClick={savePropertyGroup}
+                style={{ flex: 1, background: '#9333ea', color: 'white', padding: '14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '500', fontSize: '16px' }}
+              >
+                {editingGroup ? 'Update Group' : 'Create Group'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowGroupModal(false);
+                  setEditingGroup(null);
+                  setGroupForm({ name: '', selectedPropertyIds: [] });
+                  setProximitySuggestions([]);
+                }}
+                style={{ flex: 1, background: '#d1d5db', color: theme.text, padding: '14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '500', fontSize: '16px' }}
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>
@@ -3486,7 +4997,7 @@ const AdminDashboard = () => {
       {/* Job Modal */}
       {showJobModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, overflow: 'auto' }}>
-          <div style={{ background: 'white', borderRadius: '12px', padding: '32px', maxWidth: '600px', width: '90%', margin: '20px', maxHeight: '90vh', overflow: 'auto' }}>
+          <div style={{ background: theme.cardBg, borderRadius: '12px', padding: '32px', maxWidth: '600px', width: '90%', margin: '20px', maxHeight: '90vh', overflow: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <h3 style={{ fontSize: '24px', fontWeight: 'bold' }}>Assign Job{bulkMode ? 's' : ''}</h3>
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
@@ -3521,8 +5032,37 @@ const AdminDashboard = () => {
                   displayKey="name"
                 />
               ) : (
-                <div style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', maxHeight: '200px', overflow: 'auto' }}>
-                  <p style={{ fontSize: '14px', fontWeight: '600', marginBottom: '10px' }}>Select Properties ({selectedProperties.length} selected)</p>
+                <>
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px', display: 'block' }}>
+                      Quick Select by Group
+                    </label>
+                    <select
+                      value={quickSelectGroup}
+                      onChange={(e) => handleQuickSelectGroup(e.target.value)}
+                      style={{ width: '100%', padding: '12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '16px', background: theme.cardBg, cursor: 'pointer' }}
+                    >
+                      <option value="">-- Select Group to Auto-Fill --</option>
+                      <option value="all">All Properties ({properties.length})</option>
+                      <option value="ungrouped">Ungrouped ({properties.filter(p => !p.property_group).length})</option>
+                      {propertyGroups.map(group => {
+                        const count = properties.filter(p => p.property_group === group).length;
+                        return (
+                          <option key={group} value={group}>{group} ({count} properties)</option>
+                        );
+                      })}
+                    </select>
+                    {selectedProperties.length > 0 && (
+                      <div style={{ marginTop: '8px', padding: '8px 12px', background: '#dbeafe', borderRadius: '6px', fontSize: '13px', color: '#1e40af', fontWeight: '500' }}>
+                        {selectedProperties.length} properties selected
+                        {quickSelectGroup && quickSelectGroup !== '' && (
+                          <span> from {quickSelectGroup === 'all' ? 'all properties' : quickSelectGroup === 'ungrouped' ? 'ungrouped properties' : `"${quickSelectGroup}"`}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', maxHeight: '200px', overflow: 'auto' }}>
+                    <p style={{ fontSize: '14px', fontWeight: '600', marginBottom: '10px' }}>Adjust Selection ({selectedProperties.length} selected)</p>
                   {properties.map(p => (
                     <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', cursor: 'pointer', borderRadius: '6px', background: selectedProperties.includes(p.id) ? '#eff6ff' : 'transparent' }}>
                       <input
@@ -3540,6 +5080,7 @@ const AdminDashboard = () => {
                     </label>
                   ))}
                 </div>
+                </>
               )}
 
               <div>
@@ -3547,7 +5088,7 @@ const AdminDashboard = () => {
                 <input type="date" value={jobForm.scheduled_date} onChange={(e) => setJobForm({...jobForm, scheduled_date: e.target.value})} style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px' }} />
               </div>
 
-              <div style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '16px', background: '#f9fafb' }}>
+              <div style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '16px', background: theme.hover }}>
                 <label style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', display: 'block' }}>Assignment Type</label>
                 <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
@@ -3594,7 +5135,7 @@ const AdminDashboard = () => {
                         style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px' }}
                       />
                     </div>
-                    <div style={{ fontSize: '13px', color: '#6b7280', background: '#eff6ff', padding: '10px', borderRadius: '6px' }}>
+                    <div style={{ fontSize: '13px', color: theme.textSecondary, background: '#eff6ff', padding: '10px', borderRadius: '6px' }}>
                       💡 Jobs will be created from <strong>{jobForm.scheduled_date}</strong> to <strong>{jobForm.end_date}</strong> at <strong>{jobForm.frequency}</strong> intervals
                     </div>
                   </div>
@@ -3614,7 +5155,7 @@ const AdminDashboard = () => {
                     <span style={{ fontSize: '16px', fontWeight: '700', color: jobForm.is_vip ? '#dc2626' : '#374151' }}>
                       ⭐ VIP / High Priority Job
                     </span>
-                    <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0 0 0' }}>
+                    <p style={{ fontSize: '13px', color: theme.textSecondary, margin: '4px 0 0 0' }}>
                       Must be completed before deadline. Will appear first in worker's list and map.
                     </p>
                   </div>
@@ -3631,7 +5172,7 @@ const AdminDashboard = () => {
                       onChange={(e) => setJobForm({...jobForm, deadline_time: e.target.value})}
                       style={{ width: '100%', border: '2px solid #dc2626', borderRadius: '8px', padding: '12px', fontSize: '16px' }}
                     />
-                    <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '6px' }}>
+                    <p style={{ fontSize: '12px', color: theme.textSecondary, marginTop: '6px' }}>
                       Job must be completed by this time
                     </p>
                   </div>
@@ -3639,7 +5180,7 @@ const AdminDashboard = () => {
               </div>
 
               {/* Estimated Duration */}
-              <div style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '16px', background: '#f9fafb' }}>
+              <div style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '16px', background: theme.hover }}>
                 <label style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px', display: 'block' }}>
                   ⏱️ Estimated Duration (minutes)
                 </label>
@@ -3651,7 +5192,7 @@ const AdminDashboard = () => {
                   onChange={(e) => setJobForm({...jobForm, estimated_duration_minutes: parseInt(e.target.value) || 60})}
                   style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px' }}
                 />
-                <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '6px' }}>
+                <p style={{ fontSize: '12px', color: theme.textSecondary, marginTop: '6px' }}>
                   How long should this job take? ({jobForm.estimated_duration_minutes >= 60 ? `${Math.floor(jobForm.estimated_duration_minutes / 60)}h ${jobForm.estimated_duration_minutes % 60}m` : `${jobForm.estimated_duration_minutes} minutes`})
                 </p>
               </div>
@@ -3763,7 +5304,7 @@ const AdminDashboard = () => {
                 });
                 setSelectedProperties([]);
                 setBulkMode(false);
-              }} style={{ flex: 1, background: '#d1d5db', color: '#374151', padding: '14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '500', fontSize: '16px' }}>Cancel</button>
+              }} style={{ flex: 1, background: '#d1d5db', color: theme.text, padding: '14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '500', fontSize: '16px' }}>Cancel</button>
             </div>
           </div>
         </div>
@@ -3828,14 +5369,14 @@ const AdminDashboard = () => {
       {/* Template Editor Modal */}
       {showTemplateEditor && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60 }}>
-          <div style={{ background: 'white', borderRadius: '12px', padding: '32px', maxWidth: '500px', width: '90%', maxHeight: '80vh', overflow: 'auto' }}>
+          <div style={{ background: theme.cardBg, borderRadius: '12px', padding: '32px', maxWidth: '500px', width: '90%', maxHeight: '80vh', overflow: 'auto' }}>
             <h3 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '20px' }}>Edit Checklist Templates</h3>
 
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: '#374151' }}>Service Templates</label>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: theme.text }}>Service Templates</label>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
                 {checklistTemplates.map((template, index) => (
-                  <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', background: '#f9fafb', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
+                  <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', background: theme.hover, borderRadius: '6px', border: '1px solid #e5e7eb' }}>
                     <span style={{ flex: 1, fontSize: '14px' }}>{template}</span>
                     <button
                       onClick={() => setChecklistTemplates(checklistTemplates.filter((_, i) => i !== index))}
@@ -3895,6 +5436,83 @@ const AdminDashboard = () => {
           </div>
         </div>
       )}
+
+      {/* Loading Overlay */}
+      {loading && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          backdropFilter: 'blur(4px)'
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '16px',
+            padding: '32px',
+            maxWidth: '400px',
+            width: '90%',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+            textAlign: 'center'
+          }}>
+            {/* Spinner */}
+            <div style={{
+              width: '60px',
+              height: '60px',
+              border: '4px solid #e5e7eb',
+              borderTop: '4px solid #2563eb',
+              borderRadius: '50%',
+              margin: '0 auto 20px',
+              animation: 'spin 1s linear infinite'
+            }}></div>
+
+            {/* Loading Message */}
+            <h3 style={{
+              fontSize: '18px',
+              fontWeight: '600',
+              color: '#111827',
+              marginBottom: '8px'
+            }}>
+              {loadingMessage || 'Loading...'}
+            </h3>
+
+            {/* Progress Bar */}
+            {loadingProgress > 0 && (
+              <div style={{ marginTop: '16px' }}>
+                <div style={{
+                  width: '100%',
+                  height: '8px',
+                  background: '#e5e7eb',
+                  borderRadius: '4px',
+                  overflow: 'hidden'
+                }}>
+                  <div style={{
+                    width: `${loadingProgress}%`,
+                    height: '100%',
+                    background: 'linear-gradient(90deg, #2563eb 0%, #3b82f6 100%)',
+                    transition: 'width 0.3s ease',
+                    borderRadius: '4px'
+                  }}></div>
+                </div>
+                <div style={{
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: '#2563eb',
+                  marginTop: '8px'
+                }}>
+                  {loadingProgress}%
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Custom Alert Component */}
+      <CustomAlert />
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); }}`}</style>
     </div>
@@ -3960,8 +5578,8 @@ const App = () => {
             Please access this dashboard from a computer for the best experience.
           </p>
 
-          <div style={{ background: '#f3f4f6', borderRadius: '8px', padding: '16px', marginBottom: '24px' }}>
-            <p style={{ fontSize: '14px', color: '#374151', marginBottom: '8px', fontWeight: '600' }}>📱 For mobile job management:</p>
+          <div style={{ background: '#f9fafb', borderRadius: '8px', padding: '16px', marginBottom: '24px' }}>
+            <p style={{ fontSize: '14px', color: '#111827', marginBottom: '8px', fontWeight: '600' }}>📱 For mobile job management:</p>
             <p style={{ fontSize: '14px', color: '#6b7280', margin: 0 }}>Workers should use the Golden Angel Worker mobile app</p>
           </div>
 
@@ -3974,7 +5592,7 @@ const App = () => {
 
           <button
             onClick={handleLogout}
-            style={{ width: '100%', padding: '14px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: '600', cursor: 'pointer' }}
+            style={{ width: '100%', padding: '14px', background: '#f9fafb', color: '#111827', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: '600', cursor: 'pointer' }}
           >
             Logout
           </button>
