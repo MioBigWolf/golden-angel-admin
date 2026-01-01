@@ -11,7 +11,19 @@
       "Bash(npx expo start:*)",
       "Bash(npx expo login -u miothemio -p \"Miothegreat.134mio\")",
       "Bash(npx expo publish)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(eas update:configure:*)",
+      "mcp__supabase__get_advisors",
+      "mcp__supabase__get_logs",
+      "mcp__supabase__list_tables",
+      "mcp__supabase__list_migrations",
+      "Bash(gh repo edit:*)",
+      "Bash(curl:*)",
+      "Bash(winget install:*)",
+      "Bash(gh auth status:*)",
+      "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" auth login --web)",
+      "Bash(test:*)",
+      "Bash(git clone:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

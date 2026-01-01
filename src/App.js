@@ -121,7 +121,7 @@ const SearchBar = React.memo(({ value, onChange, theme }) => {
   };
 
   return (
-    <div style={{ position: 'relative', marginBottom: '12px' }}>
+    <div style={{ position: 'relative', marginBottom: '12px', width: '20%', minWidth: '200px' }}>
       <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: theme.textSecondary }} />
       <input
         ref={inputRef}
@@ -133,7 +133,7 @@ const SearchBar = React.memo(({ value, onChange, theme }) => {
         autoCorrect="off"
         autoCapitalize="off"
         spellCheck="false"
-        style={{ width: '100%', padding: '8px 10px 8px 35px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}
+        style={{ width: '100%', padding: '8px 10px 8px 35px', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', background: theme.inputBg, color: theme.text }}
       />
     </div>
   );
@@ -161,10 +161,10 @@ const AdminDashboard = () => {
   const [showPropertyModal, setShowPropertyModal] = useState(false);
   const [showJobModal, setShowJobModal] = useState(false);
   const [bulkClientText, setBulkClientText] = useState('');
-  
+
   const [editingItem, setEditingItem] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   const [workerForm, setWorkerForm] = useState({ name: '', email: '', phone: '', password: '' });
   const [clientForm, setClientForm] = useState({ name: '', email: '', phone: '' });
   const [propertyForm, setPropertyForm] = useState({
@@ -522,7 +522,7 @@ const AdminDashboard = () => {
 
     setLoading(true);
     setLoadingMessage(editingItem ? 'Updating client...' : 'Creating client...');
-    
+
     if (editingItem) {
       const { error } = await supabase.from('clients').update(clientForm).eq('id', editingItem.id);
       if (!error) {
@@ -539,7 +539,7 @@ const AdminDashboard = () => {
         alert('Error adding client: ' + error.message);
       }
     }
-    
+
     setShowClientModal(false);
     setClientForm({ name: '', email: '', phone: '' });
     await loadClients();
@@ -1325,7 +1325,7 @@ const AdminDashboard = () => {
       checklist: JSON.stringify(checklistData),
       property_group: propertyForm.property_group || null
     };
-    
+
     if (editingItem) {
       const { error } = await supabase.from('properties').update(propertyData).eq('id', editingItem.id);
       if (!error) {
@@ -1342,7 +1342,7 @@ const AdminDashboard = () => {
         alert('Error adding property: ' + error.message);
       }
     }
-    
+
     setShowPropertyModal(false);
     setPropertyForm({ client_id: '', property_name: '', address: '', latitude: '', longitude: '', highlight_photos: [], special_notes: '', checklist: [], property_group: '' });
     setSelectedChecklistItems([]);
@@ -1553,63 +1553,63 @@ const AdminDashboard = () => {
             {autoRefresh && <span style={{ fontSize: '10px', color: '#10b981' }}>●</span>}
           </div>
         </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
-        <div onClick={() => setActiveTab('workers')} style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'transform 0.2s', color: 'white' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px', opacity: 0.9 }}>👷 Workers Management</h3>
-          <p style={{ fontSize: '36px', fontWeight: 'bold' }}>{workers.length}</p>
-          <p style={{ fontSize: '14px', opacity: 0.8, marginTop: '5px' }}>workers</p>
-        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+          <div onClick={() => setActiveTab('workers')} style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'transform 0.2s', color: 'white' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px', opacity: 0.9 }}>👷 Workers Management</h3>
+            <p style={{ fontSize: '36px', fontWeight: 'bold' }}>{workers.length}</p>
+            <p style={{ fontSize: '14px', opacity: 0.8, marginTop: '5px' }}>workers</p>
+          </div>
 
-        <div onClick={() => setActiveTab('clients')} style={{ background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'transform 0.2s', color: 'white' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px', opacity: 0.9 }}>👥 Clients Management</h3>
-          <p style={{ fontSize: '36px', fontWeight: 'bold' }}>{clients.length}</p>
-          <p style={{ fontSize: '14px', opacity: 0.8, marginTop: '5px' }}>clients</p>
-        </div>
+          <div onClick={() => setActiveTab('clients')} style={{ background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'transform 0.2s', color: 'white' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px', opacity: 0.9 }}>👥 Clients Management</h3>
+            <p style={{ fontSize: '36px', fontWeight: 'bold' }}>{clients.length}</p>
+            <p style={{ fontSize: '14px', opacity: 0.8, marginTop: '5px' }}>clients</p>
+          </div>
 
-        <div onClick={() => setActiveTab('properties')} style={{ background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'transform 0.2s', color: 'white' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px', opacity: 0.9 }}>🏠 Properties</h3>
-          <p style={{ fontSize: '36px', fontWeight: 'bold' }}>{properties.length}</p>
-          <p style={{ fontSize: '14px', opacity: 0.8, marginTop: '5px' }}>properties</p>
-        </div>
+          <div onClick={() => setActiveTab('properties')} style={{ background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'transform 0.2s', color: 'white' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px', opacity: 0.9 }}>🏠 Properties</h3>
+            <p style={{ fontSize: '36px', fontWeight: 'bold' }}>{properties.length}</p>
+            <p style={{ fontSize: '14px', opacity: 0.8, marginTop: '5px' }}>properties</p>
+          </div>
 
-        <div onClick={() => setActiveTab('jobs')} style={{ background: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'transform 0.2s', color: 'white' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px', opacity: 0.9 }}>📋 Jobs Management</h3>
-          <p style={{ fontSize: '36px', fontWeight: 'bold' }}>{jobs.length}</p>
-          <p style={{ fontSize: '14px', opacity: 0.8, marginTop: '5px' }}>total jobs</p>
-        </div>
+          <div onClick={() => setActiveTab('jobs')} style={{ background: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'transform 0.2s', color: 'white' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px', opacity: 0.9 }}>📋 Jobs Management</h3>
+            <p style={{ fontSize: '36px', fontWeight: 'bold' }}>{jobs.length}</p>
+            <p style={{ fontSize: '14px', opacity: 0.8, marginTop: '5px' }}>total jobs</p>
+          </div>
 
-        <div onClick={() => setActiveTab('today')} style={{ background: 'linear-gradient(135deg, #30cfd0 0%, #330867 100%)', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'transform 0.2s', color: 'white' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px', opacity: 0.9 }}>📅 Today's Jobs</h3>
-          <p style={{ fontSize: '36px', fontWeight: 'bold' }}>{jobs.filter(j => j.scheduled_date === new Date().toISOString().split('T')[0]).length}</p>
-          <p style={{ fontSize: '14px', opacity: 0.8, marginTop: '5px' }}>today</p>
-        </div>
+          <div onClick={() => { setActiveTab('others'); setOthersSubTab('today'); }} style={{ background: 'linear-gradient(135deg, #30cfd0 0%, #330867 100%)', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'transform 0.2s', color: 'white' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px', opacity: 0.9 }}>📅 Today's Jobs</h3>
+            <p style={{ fontSize: '36px', fontWeight: 'bold' }}>{jobs.filter(j => j.scheduled_date === new Date().toISOString().split('T')[0]).length}</p>
+            <p style={{ fontSize: '14px', opacity: 0.8, marginTop: '5px' }}>today</p>
+          </div>
 
-        <div onClick={() => setActiveTab('completed')} style={{ background: darkTheme ? theme.cardBg : 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'transform 0.2s', color: theme.text, border: darkTheme ? `1px solid ${theme.border}` : 'none' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px', opacity: 0.9 }}>✅ Completed Jobs</h3>
-          <p style={{ fontSize: '36px', fontWeight: 'bold' }}>{jobs.filter(j => j.status === 'completed').length}</p>
-          <p style={{ fontSize: '14px', opacity: 0.7, marginTop: '5px' }}>completed</p>
-        </div>
+          <div onClick={() => { setActiveTab('others'); setOthersSubTab('completed'); }} style={{ background: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'transform 0.2s', color: '#1f2937', border: 'none' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px', opacity: 0.9 }}>✅ Completed Jobs</h3>
+            <p style={{ fontSize: '36px', fontWeight: 'bold' }}>{jobs.filter(j => j.status === 'completed').length}</p>
+            <p style={{ fontSize: '14px', opacity: 0.7, marginTop: '5px' }}>completed</p>
+          </div>
 
-        <div onClick={() => setActiveTab('pending')} style={{ background: darkTheme ? theme.cardBg : 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'transform 0.2s', color: theme.text, border: darkTheme ? `1px solid ${theme.border}` : 'none' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px', opacity: 0.9 }}>⏳ Pending Jobs</h3>
-          <p style={{ fontSize: '36px', fontWeight: 'bold' }}>{jobs.filter(j => j.status === 'assigned').length}</p>
-          <p style={{ fontSize: '14px', opacity: 0.7, marginTop: '5px' }}>pending</p>
-        </div>
+          <div onClick={() => { setActiveTab('others'); setOthersSubTab('pending'); }} style={{ background: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'transform 0.2s', color: '#1f2937', border: 'none' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px', opacity: 0.9 }}>⏳ Pending Jobs</h3>
+            <p style={{ fontSize: '36px', fontWeight: 'bold' }}>{jobs.filter(j => j.status === 'assigned').length}</p>
+            <p style={{ fontSize: '14px', opacity: 0.7, marginTop: '5px' }}>pending</p>
+          </div>
 
-        <div onClick={() => setActiveTab('issues')} style={{ background: darkTheme ? theme.cardBg : 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'transform 0.2s', color: theme.text, position: 'relative', border: darkTheme ? `1px solid ${theme.border}` : 'none' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px', opacity: 0.9 }}>⚠️ Reported Issues</h3>
-          <p style={{ fontSize: '36px', fontWeight: 'bold' }}>{issues.filter(i => !i.resolved).length}</p>
-          <p style={{ fontSize: '14px', opacity: 0.7, marginTop: '5px' }}>unresolved</p>
-          {issues.filter(i => !i.resolved).length > 0 && (
-            <span style={{ position: 'absolute', top: '16px', right: '16px', background: '#ef4444', color: 'white', borderRadius: '12px', padding: '4px 8px', fontSize: '12px', fontWeight: 'bold' }}>
-              {issues.filter(i => !i.resolved).length}
-            </span>
-          )}
+          <div onClick={() => setActiveTab('issues')} style={{ background: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'transform 0.2s', color: '#1f2937', position: 'relative', border: 'none' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px', opacity: 0.9 }}>⚠️ Reported Issues</h3>
+            <p style={{ fontSize: '36px', fontWeight: 'bold' }}>{issues.filter(i => !i.resolved).length}</p>
+            <p style={{ fontSize: '14px', opacity: 0.7, marginTop: '5px' }}>unresolved</p>
+            {issues.filter(i => !i.resolved).length > 0 && (
+              <span style={{ position: 'absolute', top: '16px', right: '16px', background: '#ef4444', color: 'white', borderRadius: '12px', padding: '4px 8px', fontSize: '12px', fontWeight: 'bold' }}>
+                {issues.filter(i => !i.resolved).length}
+              </span>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
   const WorkersView = () => (
     <div style={{ padding: '16px' }}>
@@ -1617,10 +1617,10 @@ const AdminDashboard = () => {
         <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: theme.text }}>Workers</h2>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <div style={{ display: 'flex', background: theme.hover, borderRadius: '6px', padding: '2px', border: `1px solid ${theme.border}` }}>
-            <button onClick={() => setViewModes({...viewModes, workers: 'grid'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.workers === 'grid' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.workers === 'grid' ? '#2563eb' : theme.textSecondary }}>
+            <button onClick={() => setViewModes({ ...viewModes, workers: 'grid' })} style={{ padding: '6px 12px', border: 'none', background: viewModes.workers === 'grid' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.workers === 'grid' ? '#2563eb' : theme.textSecondary }}>
               <Grid3x3 size={14} /> Grid
             </button>
-            <button onClick={() => setViewModes({...viewModes, workers: 'list'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.workers === 'list' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.workers === 'list' ? '#2563eb' : theme.textSecondary }}>
+            <button onClick={() => setViewModes({ ...viewModes, workers: 'list' })} style={{ padding: '6px 12px', border: 'none', background: viewModes.workers === 'list' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.workers === 'list' ? '#2563eb' : theme.textSecondary }}>
               <List size={14} /> List
             </button>
           </div>
@@ -1634,44 +1634,44 @@ const AdminDashboard = () => {
       {viewModes.workers === 'grid' ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '20px' }}>
           {filteredWorkers.map(worker => (
-          <div key={worker.id} style={{ background: theme.cardBg, borderRadius: '12px', padding: '24px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', border: `1px solid ${theme.border}` }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '15px' }}>
-              <div><h3 style={{ fontSize: '18px', fontWeight: 'bold', color: theme.text }}>{worker.name}</h3><p style={{ fontSize: '14px', color: theme.textSecondary, marginTop: '5px' }}>{worker.role}</p></div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={() => editWorker(worker)} style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer' }}><Edit size={18} /></button>
-                <button onClick={() => deleteWorker(worker.id)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}><Trash2 size={18} /></button>
+            <div key={worker.id} style={{ background: theme.cardBg, borderRadius: '12px', padding: '24px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', border: `1px solid ${theme.border}`, borderLeft: '4px solid #764ba2' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '15px' }}>
+                <div><h3 style={{ fontSize: '18px', fontWeight: 'bold', color: theme.text }}>{worker.name}</h3><p style={{ fontSize: '14px', color: theme.textSecondary, marginTop: '5px' }}>{worker.role}</p></div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={() => editWorker(worker)} style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer' }}><Edit size={18} /></button>
+                  <button onClick={() => deleteWorker(worker.id)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}><Trash2 size={18} /></button>
+                </div>
               </div>
+              <div style={{ fontSize: '14px', color: theme.text }}>
+                <p style={{ marginBottom: '8px' }}>📧 {worker.email}</p>
+                <p style={{ marginBottom: '12px' }}>📱 {worker.phone || 'N/A'}</p>
+              </div>
+              <button
+                onClick={() => {
+                  const newPassword = prompt(`Reset password for ${worker.name}\n\nEnter new password (min. 6 characters):`);
+                  if (newPassword && newPassword.length >= 6) {
+                    alert(`Password reset instructions:\n\n1. Delete this worker (${worker.name})\n2. Create a new worker with:\n   - Same name: ${worker.name}\n   - Same email: ${worker.email}\n   - New password: ${newPassword}\n\nThis ensures the worker can login with the new password.`);
+                  } else if (newPassword) {
+                    alert('Password must be at least 6 characters');
+                  }
+                }}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  background: '#f59e0b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: '600'
+                }}
+              >
+                🔑 Reset Password
+              </button>
             </div>
-            <div style={{ fontSize: '14px', color: theme.text }}>
-              <p style={{ marginBottom: '8px' }}>📧 {worker.email}</p>
-              <p style={{ marginBottom: '12px' }}>📱 {worker.phone || 'N/A'}</p>
-            </div>
-            <button
-              onClick={() => {
-                const newPassword = prompt(`Reset password for ${worker.name}\n\nEnter new password (min. 6 characters):`);
-                if (newPassword && newPassword.length >= 6) {
-                  alert(`Password reset instructions:\n\n1. Delete this worker (${worker.name})\n2. Create a new worker with:\n   - Same name: ${worker.name}\n   - Same email: ${worker.email}\n   - New password: ${newPassword}\n\nThis ensures the worker can login with the new password.`);
-                } else if (newPassword) {
-                  alert('Password must be at least 6 characters');
-                }
-              }}
-              style={{
-                width: '100%',
-                padding: '8px',
-                background: '#f59e0b',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: '600'
-              }}
-            >
-              🔑 Reset Password
-            </button>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
       ) : (
         <div style={{ background: theme.cardBg, borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1.5fr 100px', gap: '12px', padding: '10px 12px', background: theme.hover, borderBottom: '1px solid #e5e7eb', fontSize: '11px', fontWeight: '600', color: theme.textSecondary }}>
@@ -1681,8 +1681,8 @@ const AdminDashboard = () => {
             <div></div>
           </div>
           {filteredWorkers.map(worker => (
-            <div key={worker.id} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1.5fr 100px', gap: '12px', padding: '12px', borderBottom: '1px solid #f3f4f6', fontSize: '13px', alignItems: 'center' }}>
-              <div style={{ fontWeight: '600' }}>{worker.name}</div>
+            <div key={worker.id} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1.5fr 100px', gap: '12px', padding: '12px', borderBottom: `1px solid ${theme.border}`, fontSize: '13px', alignItems: 'center', background: theme.cardBg, color: theme.text }}>
+              <div style={{ fontWeight: '600', color: theme.text }}>{worker.name}</div>
               <div style={{ color: theme.textSecondary }}>{worker.email}</div>
               <div style={{ color: theme.textSecondary }}>{worker.phone || 'N/A'}</div>
               <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
@@ -1699,13 +1699,39 @@ const AdminDashboard = () => {
   const ClientsView = () => (
     <div style={{ padding: '16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-        <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: theme.text }}>Clients</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: theme.text }}>Clients</h2>
+          {selectedClients.length > 0 && (
+            <span style={{ fontSize: '14px', color: theme.textSecondary }}>({selectedClients.length} selected)</span>
+          )}
+        </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {selectedClients.length > 0 && (
+            <button
+              onClick={async () => {
+                if (window.confirm(`Delete ${selectedClients.length} selected clients? This will also delete all associated properties and jobs.`)) {
+                  const { error } = await supabase.from('clients').delete().in('id', selectedClients);
+                  if (!error) {
+                    alert(`Deleted ${selectedClients.length} clients successfully!`);
+                    setSelectedClients([]);
+                    loadClients();
+                    loadProperties();
+                    loadJobs();
+                  } else {
+                    alert('Error deleting clients: ' + error.message);
+                  }
+                }
+              }}
+              style={{ background: '#dc2626', color: 'white', padding: '8px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: '500' }}
+            >
+              <Trash2 size={16} /> Delete ({selectedClients.length})
+            </button>
+          )}
           <div style={{ display: 'flex', background: theme.hover, borderRadius: '6px', padding: '2px', border: `1px solid ${theme.border}` }}>
-            <button onClick={() => setViewModes({...viewModes, clients: 'grid'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.clients === 'grid' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.clients === 'grid' ? '#2563eb' : theme.textSecondary }}>
+            <button onClick={() => setViewModes({ ...viewModes, clients: 'grid' })} style={{ padding: '6px 12px', border: 'none', background: viewModes.clients === 'grid' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.clients === 'grid' ? '#2563eb' : theme.textSecondary }}>
               <Grid3x3 size={14} /> Grid
             </button>
-            <button onClick={() => setViewModes({...viewModes, clients: 'list'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.clients === 'list' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.clients === 'list' ? '#2563eb' : theme.textSecondary }}>
+            <button onClick={() => setViewModes({ ...viewModes, clients: 'list' })} style={{ padding: '6px 12px', border: 'none', background: viewModes.clients === 'list' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.clients === 'list' ? '#2563eb' : theme.textSecondary }}>
               <List size={14} /> List
             </button>
           </div>
@@ -1719,34 +1745,94 @@ const AdminDashboard = () => {
       </div>
       <div style={{ marginBottom: '12px' }}><SearchBar value={searchTerm} onChange={handleSearchChange} theme={theme} /></div>
 
+      {viewModes.clients === 'grid' && (
+        <div style={{ marginBottom: '12px' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: theme.text, cursor: 'pointer', userSelect: 'none' }}>
+            <input
+              type="checkbox"
+              checked={filteredClients.length > 0 && filteredClients.every(c => selectedClients.includes(c.id))}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  setSelectedClients([...new Set([...selectedClients, ...filteredClients.map(c => c.id)])]);
+                } else {
+                  setSelectedClients(selectedClients.filter(id => !filteredClients.find(c => c.id === id)));
+                }
+              }}
+              style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+            />
+            <span style={{ fontWeight: '500' }}>Select All ({filteredClients.length})</span>
+          </label>
+        </div>
+      )}
+
       {viewModes.clients === 'grid' ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '20px' }}>
           {filteredClients.map(client => (
-          <div key={client.id} style={{ background: theme.cardBg, borderRadius: '12px', padding: '24px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', border: `1px solid ${theme.border}` }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '15px' }}>
-              <div><h3 style={{ fontSize: '18px', fontWeight: 'bold', color: theme.text }}>{client.name}</h3><p style={{ fontSize: '14px', color: theme.textSecondary, marginTop: '5px' }}>Client</p></div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={() => editClient(client)} style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer' }}><Edit size={18} /></button>
-                <button onClick={() => deleteClient(client.id)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}><Trash2 size={18} /></button>
+            <div key={client.id} style={{ background: theme.cardBg, borderRadius: '12px', padding: '24px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', border: selectedClients.includes(client.id) ? '2px solid #2563eb' : `1px solid ${theme.border}`, borderLeft: '4px solid #f5576c', position: 'relative' }}>
+              <input
+                type="checkbox"
+                checked={selectedClients.includes(client.id)}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedClients([...selectedClients, client.id]);
+                  } else {
+                    setSelectedClients(selectedClients.filter(id => id !== client.id));
+                  }
+                }}
+                style={{ position: 'absolute', top: '12px', left: '12px', width: '18px', height: '18px', cursor: 'pointer' }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '15px', marginLeft: '30px' }}>
+                <div><h3 style={{ fontSize: '18px', fontWeight: 'bold', color: theme.text }}>{client.name}</h3><p style={{ fontSize: '14px', color: theme.textSecondary, marginTop: '5px' }}>Client</p></div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={() => editClient(client)} style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer' }}><Edit size={18} /></button>
+                  <button onClick={() => deleteClient(client.id)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}><Trash2 size={18} /></button>
+                </div>
+              </div>
+              <div style={{ fontSize: '14px', color: theme.text, marginLeft: '30px' }}>
+                <p style={{ marginBottom: '8px' }}>📧 {client.email || 'N/A'}</p>
+                <p>📱 {client.phone || 'N/A'}</p>
               </div>
             </div>
-            <div style={{ fontSize: '14px', color: theme.text }}>
-              <p style={{ marginBottom: '8px' }}>📧 {client.email || 'N/A'}</p>
-              <p>📱 {client.phone || 'N/A'}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
       ) : (
         <div style={{ background: theme.cardBg, borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden', border: `1px solid ${theme.border}` }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1.5fr 100px', gap: '12px', padding: '10px 12px', background: theme.hover, borderBottom: `1px solid ${theme.border}`, fontSize: '11px', fontWeight: '600', color: theme.textSecondary }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '40px 2fr 2fr 1.5fr 100px', gap: '12px', padding: '10px 12px', background: theme.hover, borderBottom: `1px solid ${theme.border}`, fontSize: '11px', fontWeight: '600', color: theme.textSecondary }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <input
+                type="checkbox"
+                checked={filteredClients.length > 0 && filteredClients.every(c => selectedClients.includes(c.id))}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedClients([...new Set([...selectedClients, ...filteredClients.map(c => c.id)])]);
+                  } else {
+                    setSelectedClients(selectedClients.filter(id => !filteredClients.find(c => c.id === id)));
+                  }
+                }}
+                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+              />
+            </div>
             <div>Name</div>
             <div>Email</div>
             <div>Phone</div>
             <div></div>
           </div>
           {filteredClients.map(client => (
-            <div key={client.id} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1.5fr 100px', gap: '12px', padding: '12px', borderBottom: `1px solid ${theme.border}`, fontSize: '13px', alignItems: 'center' }}>
+            <div key={client.id} style={{ display: 'grid', gridTemplateColumns: '40px 2fr 2fr 1.5fr 100px', gap: '12px', padding: '12px', borderBottom: `1px solid ${theme.border}`, fontSize: '13px', alignItems: 'center', background: selectedClients.includes(client.id) ? (darkTheme ? '#1e3a5f' : '#eff6ff') : 'transparent' }}>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <input
+                  type="checkbox"
+                  checked={selectedClients.includes(client.id)}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelectedClients([...selectedClients, client.id]);
+                    } else {
+                      setSelectedClients(selectedClients.filter(id => id !== client.id));
+                    }
+                  }}
+                  style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                />
+              </div>
               <div style={{ fontWeight: '600', color: theme.text }}>{client.name}</div>
               <div style={{ color: theme.textSecondary }}>{client.email}</div>
               <div style={{ color: theme.textSecondary }}>{client.phone || 'N/A'}</div>
@@ -1765,7 +1851,7 @@ const AdminDashboard = () => {
     <div style={{ padding: '16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 'bold' , color: theme.text }}>Properties</h2>
+          <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: theme.text }}>Properties</h2>
           {selectedProperties.length > 0 && (
             <span style={{ fontSize: '14px', color: theme.textSecondary }}>({selectedProperties.length} selected)</span>
           )}
@@ -1791,10 +1877,10 @@ const AdminDashboard = () => {
             </button>
           )}
           <div style={{ display: 'flex', background: theme.hover, borderRadius: '6px', padding: '2px' }}>
-            <button onClick={() => setViewModes({...viewModes, properties: 'grid'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.properties === 'grid' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.properties === 'grid' ? '#2563eb' : theme.textSecondary }}>
+            <button onClick={() => setViewModes({ ...viewModes, properties: 'grid' })} style={{ padding: '6px 12px', border: 'none', background: viewModes.properties === 'grid' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.properties === 'grid' ? '#2563eb' : theme.textSecondary }}>
               <Grid3x3 size={14} /> Grid
             </button>
-            <button onClick={() => setViewModes({...viewModes, properties: 'list'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.properties === 'list' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.properties === 'list' ? '#2563eb' : theme.textSecondary }}>
+            <button onClick={() => setViewModes({ ...viewModes, properties: 'list' })} style={{ padding: '6px 12px', border: 'none', background: viewModes.properties === 'list' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.properties === 'list' ? '#2563eb' : theme.textSecondary }}>
               <List size={14} /> List
             </button>
           </div>
@@ -1883,7 +1969,7 @@ const AdminDashboard = () => {
             const currentPhotoIndex = propertyPhotoIndexes[property.id] || 0;
 
             return (
-              <div key={property.id} style={{ background: theme.cardBg, borderRadius: '8px', padding: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: selectedProperties.includes(property.id) ? '2px solid #2563eb' : '1px solid #e5e7eb', position: 'relative' }}>
+              <div key={property.id} style={{ background: theme.cardBg, borderRadius: '8px', padding: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: selectedProperties.includes(property.id) ? '2px solid #2563eb' : `1px solid ${theme.border}`, borderLeft: '4px solid #00f2fe', position: 'relative' }}>
                 <input
                   type="checkbox"
                   checked={selectedProperties.includes(property.id)}
@@ -1919,9 +2005,9 @@ const AdminDashboard = () => {
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '6px' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{property.property_name}</h3>
+                    <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: theme.text }}>{property.property_name}</h3>
                     {property.property_group && (
-                      <span style={{ display: 'inline-block', background: '#dbeafe', color: '#1e40af', fontSize: '10px', fontWeight: '600', padding: '2px 8px', borderRadius: '10px', marginBottom: '4px' }}>
+                      <span style={{ display: 'inline-block', background: darkTheme ? '#1e3a8a' : '#dbeafe', color: darkTheme ? '#bae6fd' : '#1e40af', fontSize: '10px', fontWeight: '600', padding: '2px 8px', borderRadius: '10px', marginBottom: '4px' }}>
                         {property.property_group}
                       </span>
                     )}
@@ -1934,7 +2020,7 @@ const AdminDashboard = () => {
                 </div>
                 <p style={{ color: theme.text, fontSize: '11px', marginBottom: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📍 {property.address}</p>
                 {property.special_notes && (
-                  <p style={{ fontSize: '10px', color: '#92400e', background: '#fef3c7', padding: '4px 6px', borderRadius: '4px', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📝 {property.special_notes}</p>
+                  <p style={{ fontSize: '10px', color: darkTheme ? '#fde68a' : '#92400e', background: darkTheme ? '#451a03' : '#fef3c7', padding: '4px 6px', borderRadius: '4px', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📝 {property.special_notes}</p>
                 )}
               </div>
             );
@@ -1950,7 +2036,7 @@ const AdminDashboard = () => {
             <div></div>
           </div>
           {filteredProperties.map(property => (
-            <div key={property.id} style={{ display: 'grid', gridTemplateColumns: '40px 2fr 1.5fr 3fr 100px', gap: '12px', padding: '12px', borderBottom: '1px solid #f3f4f6', fontSize: '13px', alignItems: 'center', background: selectedProperties.includes(property.id) ? '#eff6ff' : 'white' }}>
+            <div key={property.id} style={{ display: 'grid', gridTemplateColumns: '40px 2fr 1.5fr 3fr 100px', gap: '12px', padding: '12px', borderBottom: `1px solid ${theme.border}`, fontSize: '13px', alignItems: 'center', background: selectedProperties.includes(property.id) ? (darkTheme ? '#155e75' : '#eff6ff') : theme.cardBg, color: theme.text }}>
               <div style={{ display: 'flex', justifyContent: 'center' }}>
                 <input
                   type="checkbox"
@@ -1967,9 +2053,9 @@ const AdminDashboard = () => {
                 />
               </div>
               <div>
-                <div style={{ fontWeight: '600', marginBottom: '4px' }}>{property.property_name}</div>
+                <div style={{ fontWeight: '600', marginBottom: '4px', color: theme.text }}>{property.property_name}</div>
                 {property.property_group && (
-                  <span style={{ display: 'inline-block', background: '#dbeafe', color: '#1e40af', fontSize: '10px', fontWeight: '600', padding: '2px 8px', borderRadius: '10px' }}>
+                  <span style={{ display: 'inline-block', background: darkTheme ? '#1e3a8a' : '#dbeafe', color: darkTheme ? '#bae6fd' : '#1e40af', fontSize: '10px', fontWeight: '600', padding: '2px 8px', borderRadius: '10px' }}>
                     {property.property_group}
                   </span>
                 )}
@@ -2034,10 +2120,7 @@ const AdminDashboard = () => {
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url={darkTheme
-            ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-            : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          }
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         {propertiesWithCoords.map(property => {
           const isSelected = selectedProperties.includes(property.id);
@@ -2054,7 +2137,7 @@ const AdminDashboard = () => {
                 <div style={{ minWidth: '200px' }}>
                   <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>{property.property_name}</h3>
                   {property.property_group && (
-                    <span style={{ display: 'inline-block', background: '#dbeafe', color: '#1e40af', fontSize: '10px', fontWeight: '600', padding: '2px 8px', borderRadius: '10px', marginBottom: '4px' }}>
+                    <span style={{ display: 'inline-block', background: darkTheme ? '#1e3a8a' : '#dbeafe', color: darkTheme ? '#bae6fd' : '#1e40af', fontSize: '10px', fontWeight: '600', padding: '2px 8px', borderRadius: '10px', marginBottom: '4px' }}>
                       {property.property_group}
                     </span>
                   )}
@@ -2096,14 +2179,14 @@ const AdminDashboard = () => {
             <StableMap
               properties={properties.filter(p => activeJobs.some(j => j.property_id === p.id))}
               selectedProperties={[]}
-              onMarkerClick={() => {}}
+              onMarkerClick={() => { }}
             />
           </div>
         </div>
 
         {/* Sidebar - Right Side */}
         <div style={{ width: '400px', background: theme.cardBg, borderLeft: '1px solid #e5e7eb', padding: '20px', overflowY: 'auto' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '20px' }}>Worker Tracking</h2>
+          <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '20px', color: theme.text }}>Worker Tracking</h2>
 
           <p style={{ fontSize: '13px', color: theme.textSecondary, marginBottom: '20px', padding: '12px', background: '#fef3c7', borderRadius: '6px', border: '1px solid #fcd34d' }}>
             📍 Worker GPS tracking coming soon. This map shows active job locations.
@@ -2163,7 +2246,7 @@ const AdminDashboard = () => {
 
                     {property?.property_group && (
                       <div style={{ marginTop: '8px' }}>
-                        <span style={{ fontSize: '10px', fontWeight: '600', padding: '3px 8px', borderRadius: '10px', background: '#dbeafe', color: '#1e40af' }}>
+                        <span style={{ fontSize: '10px', fontWeight: '600', padding: '3px 8px', borderRadius: '10px', background: darkTheme ? '#1e3a8a' : '#dbeafe', color: darkTheme ? '#bae6fd' : '#1e40af' }}>
                           Group: {property.property_group}
                         </span>
                       </div>
@@ -2221,7 +2304,7 @@ const AdminDashboard = () => {
 
         {/* Sidebar - Right Side */}
         <div style={{ width: '400px', background: theme.cardBg, borderLeft: '1px solid #e5e7eb', padding: '20px', overflowY: 'auto' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '20px' }}>Map Controls</h2>
+          <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '20px', color: theme.text }}>Map Controls</h2>
 
           {/* Group Filter */}
           <div style={{ marginBottom: '20px' }}>
@@ -2229,7 +2312,7 @@ const AdminDashboard = () => {
             <select
               value={selectedGroup}
               onChange={(e) => setSelectedGroup(e.target.value)}
-              style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px', background: theme.cardBg, cursor: 'pointer' }}
+              style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px', background: theme.cardBg, cursor: 'pointer', color: theme.text }}
             >
               <option value="all">All Properties ({properties.length})</option>
               <option value="ungrouped">Ungrouped ({properties.filter(p => !p.property_group).length})</option>
@@ -2242,7 +2325,7 @@ const AdminDashboard = () => {
 
           {/* Legend */}
           <div style={{ marginBottom: '20px', padding: '12px', background: theme.hover, borderRadius: '6px' }}>
-            <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>Legend:</div>
+            <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: theme.text }}>Legend:</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{ width: '16px', height: '16px', background: '#2563eb', borderRadius: '50%' }}></div>
@@ -2458,7 +2541,7 @@ const AdminDashboard = () => {
       <div style={{ padding: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <h2 style={{ fontSize: '24px', fontWeight: 'bold' , color: theme.text }}>Jobs</h2>
+            <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: theme.text }}>Jobs</h2>
             {selectedJobs.length > 0 && (
               <span style={{ fontSize: '14px', color: theme.textSecondary }}>({selectedJobs.length} selected)</span>
             )}
@@ -2484,10 +2567,10 @@ const AdminDashboard = () => {
               </button>
             )}
             <div style={{ display: 'flex', background: theme.hover, borderRadius: '6px', padding: '2px' }}>
-              <button onClick={() => setViewModes({...viewModes, jobs: 'grid'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.jobs === 'grid' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.jobs === 'grid' ? '#2563eb' : theme.textSecondary }}>
+              <button onClick={() => setViewModes({ ...viewModes, jobs: 'grid' })} style={{ padding: '6px 12px', border: 'none', background: viewModes.jobs === 'grid' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.jobs === 'grid' ? '#2563eb' : theme.textSecondary }}>
                 <Grid3x3 size={14} /> Grid
               </button>
-              <button onClick={() => setViewModes({...viewModes, jobs: 'list'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.jobs === 'list' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.jobs === 'list' ? '#2563eb' : theme.textSecondary }}>
+              <button onClick={() => setViewModes({ ...viewModes, jobs: 'list' })} style={{ padding: '6px 12px', border: 'none', background: viewModes.jobs === 'list' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.jobs === 'list' ? '#2563eb' : theme.textSecondary }}>
                 <List size={14} /> List
               </button>
             </div>
@@ -2760,328 +2843,330 @@ const AdminDashboard = () => {
         {viewModes.jobs === 'grid' ? (
           /* Grouped Grid View */
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {Object.entries(jobsByWorker).map(([workerId, { workerName, jobs: workerJobs }]) => {
-            const isExpanded = expandedWorkers[workerId] !== false; // Default to expanded
-            const visibleJobs = workerJobs.filter(j =>
-              j.properties?.property_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              j.workers?.name.toLowerCase().includes(searchTerm.toLowerCase())
-            );
+            {Object.entries(jobsByWorker).map(([workerId, { workerName, jobs: workerJobs }]) => {
+              const isExpanded = expandedWorkers[workerId] !== false; // Default to expanded
+              const visibleJobs = workerJobs.filter(j =>
+                j.properties?.property_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                j.workers?.name.toLowerCase().includes(searchTerm.toLowerCase())
+              );
 
-            if (visibleJobs.length === 0) return null;
+              if (visibleJobs.length === 0) return null;
 
-            return (
-              <div key={workerId} style={{ background: theme.cardBg, borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-                {/* Worker Header */}
-                <div
-                  onClick={() => setExpandedWorkers({ ...expandedWorkers, [workerId]: !isExpanded })}
-                  style={{ padding: '10px 12px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                >
-                  <h3 style={{ fontSize: '14px', fontWeight: 'bold' }}>{workerName} <span style={{ fontSize: '12px', opacity: 0.9, fontWeight: 'normal' }}>({visibleJobs.length} jobs)</span></h3>
-                  <span style={{ fontSize: '18px', transition: 'transform 0.2s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
-                </div>
+              return (
+                <div key={workerId} style={{ background: theme.cardBg, borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+                  {/* Worker Header */}
+                  <div
+                    onClick={() => setExpandedWorkers({ ...expandedWorkers, [workerId]: !isExpanded })}
+                    style={{ padding: '10px 12px', background: theme.cardBg, borderBottom: `1px solid ${theme.border}`, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                  >
+                    <h3 style={{ fontSize: '14px', fontWeight: 'bold', color: theme.text }}>{workerName} <span style={{ fontSize: '12px', opacity: 0.9, fontWeight: 'normal', color: theme.textSecondary }}>({visibleJobs.length} jobs)</span></h3>
+                    <span style={{ fontSize: '18px', transition: 'transform 0.2s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', color: theme.textSecondary }}>▼</span>
+                  </div>
 
-                {/* Jobs Grid */}
-                {isExpanded && (
-                <div style={{ padding: '15px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '12px' }}>
-                  {visibleJobs.map(job => (
-                    <div key={job.id} style={{ background: theme.hover, borderRadius: '8px', padding: '14px', border: selectedJobs.includes(job.id) ? '2px solid #2563eb' : job.is_vip ? '2px solid #fbbf24' : '1px solid #e5e7eb', position: 'relative' }}>
-                      <input
-                        type="checkbox"
-                        checked={selectedJobs.includes(job.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedJobs([...selectedJobs, job.id]);
-                          } else {
-                            setSelectedJobs(selectedJobs.filter(id => id !== job.id));
-                          }
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        style={{ position: 'absolute', top: '10px', right: '10px', width: '16px', height: '16px', cursor: 'pointer' }}
-                      />
-                      {job.is_vip && <span style={{ fontSize: '10px', background: '#fef3c7', color: '#92400e', padding: '2px 6px', borderRadius: '4px', marginBottom: '6px', display: 'inline-block' }}>⭐ VIP</span>}
-                      <h3 style={{ fontSize: '15px', fontWeight: 'bold', marginBottom: '6px', paddingRight: '24px' }}>{job.properties?.property_name}</h3>
-                      <p style={{ color: theme.textSecondary, marginBottom: '4px', fontSize: '12px' }}>📅 {job.scheduled_date}</p>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
-                        <span style={{ padding: '3px 8px', borderRadius: '12px', fontSize: '10px', fontWeight: '500', background: job.status === 'completed' ? '#d1fae5' : job.status === 'in_progress' ? '#fef3c7' : '#dbeafe', color: job.status === 'completed' ? '#065f46' : job.status === 'in_progress' ? '#92400e' : '#1e40af' }}>
-                          {job.status}
-                        </span>
-                        {job.published && <span style={{ fontSize: '10px' }}>👁️</span>}
-                        {job.recurring_group_id && <span style={{ fontSize: '10px' }}>🔁</span>}
-                      </div>
+                  {/* Jobs Grid */}
+                  {isExpanded && (
+                    <div style={{ padding: '15px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '12px' }}>
+                      {visibleJobs.map(job => (
+                        <div key={job.id} style={{ background: theme.hover, borderRadius: '8px', padding: '14px', border: selectedJobs.includes(job.id) ? '2px solid #2563eb' : job.is_vip ? '2px solid #fbbf24' : '1px solid #e5e7eb', position: 'relative' }}>
+                          <input
+                            type="checkbox"
+                            checked={selectedJobs.includes(job.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedJobs([...selectedJobs, job.id]);
+                              } else {
+                                setSelectedJobs(selectedJobs.filter(id => id !== job.id));
+                              }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            style={{ position: 'absolute', top: '10px', right: '10px', width: '16px', height: '16px', cursor: 'pointer' }}
+                          />
+                          {job.is_vip && <span style={{ fontSize: '10px', background: '#fef3c7', color: '#92400e', padding: '2px 6px', borderRadius: '4px', marginBottom: '6px', display: 'inline-block' }}>⭐ VIP</span>}
+                          <h3 style={{ fontSize: '15px', fontWeight: 'bold', marginBottom: '6px', paddingRight: '24px', color: theme.text }}>{job.properties?.property_name}</h3>
+                          <p style={{ color: theme.textSecondary, marginBottom: '4px', fontSize: '12px' }}>📅 {job.scheduled_date}</p>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                            <span style={{ padding: '3px 8px', borderRadius: '12px', fontSize: '10px', fontWeight: '500', background: job.status === 'completed' ? '#d1fae5' : job.status === 'in_progress' ? '#fef3c7' : (darkTheme ? '#1e3a8a' : '#dbeafe'), color: job.status === 'completed' ? '#065f46' : job.status === 'in_progress' ? '#92400e' : (darkTheme ? '#bae6fd' : '#1e40af') }}>
+                              {job.status}
+                            </span>
+                            {job.published && <span style={{ fontSize: '10px' }}>👁️</span>}
+                            {job.recurring_group_id && <span style={{ fontSize: '10px' }}>🔁</span>}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
-                )}
-              </div>
-            );
-          })}
+              );
+            })}
           </div>
         ) : (
           /* Grouped View */
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {Object.entries(jobsByWorker).map(([workerId, { workerName, jobs: workerJobs }]) => {
-            const isExpanded = expandedWorkers[workerId] !== false; // Default to expanded
-            const visibleJobs = workerJobs.filter(j =>
-              j.properties?.property_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              j.workers?.name.toLowerCase().includes(searchTerm.toLowerCase())
-            );
+            {Object.entries(jobsByWorker).map(([workerId, { workerName, jobs: workerJobs }]) => {
+              const isExpanded = expandedWorkers[workerId] !== false; // Default to expanded
+              const visibleJobs = workerJobs.filter(j =>
+                j.properties?.property_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                j.workers?.name.toLowerCase().includes(searchTerm.toLowerCase())
+              );
 
-            if (visibleJobs.length === 0) return null;
+              if (visibleJobs.length === 0) return null;
 
-            const allJobsExpanded = visibleJobs.every(job => expandedJobs[job.id] !== false);
+              const allJobsExpanded = visibleJobs.every(job => expandedJobs[job.id] !== false);
 
-            return (
-              <div key={workerId} style={{ background: theme.cardBg, borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-                {/* Worker Header - Compact */}
-                <div
-                  style={{ padding: '10px 12px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                >
+              return (
+                <div key={workerId} style={{ background: theme.cardBg, borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+                  {/* Worker Header - Compact */}
                   <div
-                    onClick={() => setExpandedWorkers({ ...expandedWorkers, [workerId]: !isExpanded })}
-                    style={{ flex: 1, cursor: 'pointer' }}
+                    style={{ padding: '10px 12px', background: theme.cardBg, borderBottom: `1px solid ${theme.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                   >
-                    <h3 style={{ fontSize: '14px', fontWeight: 'bold' }}>{workerName} <span style={{ fontSize: '12px', opacity: 0.9, fontWeight: 'normal' }}>({visibleJobs.length} jobs)</span></h3>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {/* Expand All Jobs */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const newState = {};
-                        visibleJobs.forEach(job => {
-                          newState[job.id] = !allJobsExpanded;
-                        });
-                        setExpandedJobs({ ...expandedJobs, ...newState });
-                      }}
-                      style={{
-                        background: 'rgba(255,255,255,0.2)',
-                        color: 'white',
-                        border: '1px solid rgba(255,255,255,0.3)',
-                        padding: '4px 8px',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontWeight: '600',
-                        fontSize: '11px'
-                      }}
-                      title={allJobsExpanded ? 'Collapse all jobs' : 'Expand all jobs'}
-                    >
-                      {allJobsExpanded ? '⊟ Collapse All' : '⊞ Expand All'}
-                    </button>
-
-                    {/* Master Publish Toggle */}
-                    {(() => {
-                      const allPublished = visibleJobs.every(job => job.published);
-                      const publishedCount = visibleJobs.filter(job => job.published).length;
-
-                      return (
-                        <button
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            const newState = !allPublished;
-                            const jobIds = visibleJobs.map(job => job.id);
-
-                            if (window.confirm(`${newState ? 'Publish' : 'Unpublish'} all ${visibleJobs.length} jobs for ${workerName}?`)) {
-                              const { error } = await supabase
-                                .from('jobs')
-                                .update({ published: newState })
-                                .in('id', jobIds);
-
-                              if (!error) {
-                                loadJobs();
-                                alert(`${newState ? 'Published' : 'Unpublished'} ${visibleJobs.length} jobs successfully!`);
-                              } else {
-                                alert('Error: ' + error.message);
-                              }
-                            }
-                          }}
-                          style={{
-                            background: allPublished ? '#10b981' : '#9ca3af',
-                            color: 'white',
-                            border: 'none',
-                            padding: '4px 8px',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontWeight: '600',
-                            fontSize: '11px'
-                          }}
-                          title={`${publishedCount}/${visibleJobs.length} jobs published`}
-                        >
-                          {allPublished ? '👁️' : '🔒'}
-                          {publishedCount > 0 && publishedCount < visibleJobs.length && (
-                            <span style={{ fontSize: '10px', marginLeft: '4px' }}>{publishedCount}/{visibleJobs.length}</span>
-                          )}
-                        </button>
-                      );
-                    })()}
-
                     <div
                       onClick={() => setExpandedWorkers({ ...expandedWorkers, [workerId]: !isExpanded })}
-                      style={{ fontSize: '18px', cursor: 'pointer' }}
+                      style={{ flex: 1, cursor: 'pointer' }}
                     >
-                      {isExpanded ? '▼' : '▶'}
+                      <h3 style={{ fontSize: '14px', fontWeight: 'bold', color: theme.text }}>{workerName} <span style={{ fontSize: '12px', opacity: 0.9, fontWeight: 'normal', color: theme.textSecondary }}>({visibleJobs.length} jobs)</span></h3>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {/* Expand All Jobs */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const newState = {};
+                          visibleJobs.forEach(job => {
+                            newState[job.id] = !allJobsExpanded;
+                          });
+                          setExpandedJobs({ ...expandedJobs, ...newState });
+                        }}
+                        style={{
+                          background: 'rgba(255,255,255,0.2)',
+                          color: 'white',
+                          border: '1px solid rgba(255,255,255,0.3)',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontWeight: '600',
+                          fontSize: '11px'
+                        }}
+                        title={allJobsExpanded ? 'Collapse all jobs' : 'Expand all jobs'}
+                      >
+                        {allJobsExpanded ? '⊟ Collapse All' : '⊞ Expand All'}
+                      </button>
+
+                      {/* Master Publish Toggle */}
+                      {(() => {
+                        const allPublished = visibleJobs.every(job => job.published);
+                        const publishedCount = visibleJobs.filter(job => job.published).length;
+
+                        return (
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              const newState = !allPublished;
+                              const jobIds = visibleJobs.map(job => job.id);
+
+                              if (window.confirm(`${newState ? 'Publish' : 'Unpublish'} all ${visibleJobs.length} jobs for ${workerName}?`)) {
+                                const { error } = await supabase
+                                  .from('jobs')
+                                  .update({ published: newState })
+                                  .in('id', jobIds);
+
+                                if (!error) {
+                                  loadJobs();
+                                  alert(`${newState ? 'Published' : 'Unpublished'} ${visibleJobs.length} jobs successfully!`);
+                                } else {
+                                  alert('Error: ' + error.message);
+                                }
+                              }
+                            }}
+                            style={{
+                              background: allPublished ? '#10b981' : '#9ca3af',
+                              color: 'white',
+                              border: 'none',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontWeight: '600',
+                              fontSize: '11px'
+                            }}
+                            title={`${publishedCount}/${visibleJobs.length} jobs published`}
+                          >
+                            {allPublished ? '👁️' : '🔒'}
+                            {publishedCount > 0 && publishedCount < visibleJobs.length && (
+                              <span style={{ fontSize: '10px', marginLeft: '4px' }}>{publishedCount}/{visibleJobs.length}</span>
+                            )}
+                          </button>
+                        );
+                      })()}
+
+                      <div
+                        onClick={() => setExpandedWorkers({ ...expandedWorkers, [workerId]: !isExpanded })}
+                        style={{ fontSize: '18px', cursor: 'pointer' }}
+                      >
+                        {isExpanded ? '▼' : '▶'}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Jobs List - Collapsible */}
-                {isExpanded && (
-                  <div style={{ padding: '8px' }}>
-                    {visibleJobs.map(job => {
-                      const isJobExpanded = expandedJobs[job.id] !== false;
+                  {/* Jobs List - Collapsible */}
+                  {isExpanded && (
+                    <div style={{ padding: '8px' }}>
+                      {visibleJobs.map(job => {
+                        const isJobExpanded = expandedJobs[job.id] !== false;
 
-                      return (
-                        <div
-                          key={job.id}
-                          style={{
-                            background: job.is_vip ? '#fef2f2' : '#f9fafb',
-                            borderRadius: '6px',
-                            padding: '8px 10px',
-                            marginBottom: '6px',
-                            border: job.is_vip ? '1px solid #fca5a5' : '1px solid #e5e7eb',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s'
-                          }}
-                          onClick={() => setExpandedJobs({ ...expandedJobs, [job.id]: !isJobExpanded })}
-                        >
-                          {/* Collapsed View - Compact */}
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
-                              <span style={{ fontSize: '14px', flexShrink: 0 }}>{isJobExpanded ? '▼' : '▶'}</span>
-                              <h4 style={{ fontSize: '13px', fontWeight: '600', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {job.properties?.property_name}
-                              </h4>
-                              {job.is_vip && <span style={{ padding: '2px 6px', borderRadius: '8px', fontSize: '9px', fontWeight: 'bold', background: '#dc2626', color: 'white', flexShrink: 0 }}>VIP</span>}
-                              <span style={{ padding: '2px 8px', borderRadius: '10px', fontSize: '10px', fontWeight: '500', background: job.status === 'completed' ? '#d1fae5' : job.status === 'in_progress' ? '#fef3c7' : '#dbeafe', color: job.status === 'completed' ? '#065f46' : job.status === 'in_progress' ? '#92400e' : '#1e40af', flexShrink: 0 }}>
-                                {job.status}
-                              </span>
-                              <span style={{ padding: '2px 6px', borderRadius: '8px', fontSize: '9px', fontWeight: 'bold', background: job.published ? '#10b981' : '#9ca3af', color: 'white', flexShrink: 0 }}>
-                                {job.published ? '👁️' : '🔒'}
-                              </span>
+                        return (
+                          <div
+                            key={job.id}
+                            style={{
+                              background: job.is_vip ? (darkTheme ? '#451a03' : '#fef2f2') : theme.cardBg,
+                              borderRadius: '6px',
+                              padding: '8px 10px',
+                              marginBottom: '6px',
+                              border: job.is_vip ? '1px solid #ef4444' : `1px solid ${theme.border}`,
+                              borderLeft: job.is_vip ? '4px solid #dc2626' : '4px solid #f59e0b',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s',
+                              color: theme.text
+                            }}
+                            onClick={() => setExpandedJobs({ ...expandedJobs, [job.id]: !isJobExpanded })}
+                          >
+                            {/* Collapsed View - Compact */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                                <span style={{ fontSize: '14px', flexShrink: 0 }}>{isJobExpanded ? '▼' : '▶'}</span>
+                                <h4 style={{ fontSize: '13px', fontWeight: '600', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {job.properties?.property_name}
+                                </h4>
+                                {job.is_vip && <span style={{ padding: '2px 6px', borderRadius: '8px', fontSize: '9px', fontWeight: 'bold', background: '#dc2626', color: 'white', flexShrink: 0 }}>VIP</span>}
+                                <span style={{ padding: '2px 8px', borderRadius: '10px', fontSize: '10px', fontWeight: '500', background: job.status === 'completed' ? '#d1fae5' : job.status === 'in_progress' ? '#fef3c7' : (darkTheme ? '#1e3a8a' : '#dbeafe'), color: job.status === 'completed' ? '#065f46' : job.status === 'in_progress' ? '#92400e' : (darkTheme ? '#bae6fd' : '#1e40af'), flexShrink: 0 }}>
+                                  {job.status}
+                                </span>
+                                <span style={{ padding: '2px 6px', borderRadius: '8px', fontSize: '9px', fontWeight: 'bold', background: job.published ? '#10b981' : '#9ca3af', color: 'white', flexShrink: 0 }}>
+                                  {job.published ? '👁️' : '🔒'}
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', gap: '4px' }} onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  onClick={() => {
+                                    setEditingJobId(job.id);
+                                    setNewWorkerId(job.worker_id);
+                                  }}
+                                  style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', padding: '2px' }}
+                                  title="Change Worker"
+                                >
+                                  <Edit size={14} />
+                                </button>
+                                <button onClick={() => deleteJob(job.id)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '2px' }}><Trash2 size={14} /></button>
+                              </div>
                             </div>
-                            <div style={{ display: 'flex', gap: '4px' }} onClick={(e) => e.stopPropagation()}>
-                              <button
-                                onClick={() => {
-                                  setEditingJobId(job.id);
-                                  setNewWorkerId(job.worker_id);
-                                }}
-                                style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', padding: '2px' }}
-                                title="Change Worker"
-                              >
-                                <Edit size={14} />
-                              </button>
-                              <button onClick={() => deleteJob(job.id)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '2px' }}><Trash2 size={14} /></button>
-                            </div>
-                          </div>
 
-                          {/* Expanded View - Full Details */}
-                          {isJobExpanded && (
-                            <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e5e7eb' }} onClick={(e) => e.stopPropagation()}>
-                              <p style={{ color: theme.textSecondary, marginBottom: '4px', fontSize: '12px' }}>📍 {job.properties?.address}</p>
-                              <p style={{ color: theme.textSecondary, fontSize: '12px', marginBottom: '4px' }}>📅 {job.scheduled_date}</p>
-                              {job.recurring_group_id && <p style={{ fontSize: '11px', color: '#f59e0b', fontWeight: '600', marginBottom: '4px' }}>🔁 Recurring Job</p>}
-                              {job.is_vip && job.deadline_time && <p style={{ fontSize: '12px', color: '#dc2626', fontWeight: '600', marginBottom: '4px' }}>⏰ Deadline: {job.deadline_time}</p>}
-                              {job.start_time && <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '2px' }}>Started: {new Date(job.start_time).toLocaleString()}</p>}
-                              {job.end_time && <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '4px' }}>Completed: {new Date(job.end_time).toLocaleString()}</p>}
+                            {/* Expanded View - Full Details */}
+                            {isJobExpanded && (
+                              <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e5e7eb' }} onClick={(e) => e.stopPropagation()}>
+                                <p style={{ color: theme.textSecondary, marginBottom: '4px', fontSize: '12px' }}>📍 {job.properties?.address}</p>
+                                <p style={{ color: theme.textSecondary, fontSize: '12px', marginBottom: '4px' }}>📅 {job.scheduled_date}</p>
+                                {job.recurring_group_id && <p style={{ fontSize: '11px', color: '#f59e0b', fontWeight: '600', marginBottom: '4px' }}>🔁 Recurring Job</p>}
+                                {job.is_vip && job.deadline_time && <p style={{ fontSize: '12px', color: '#dc2626', fontWeight: '600', marginBottom: '4px' }}>⏰ Deadline: {job.deadline_time}</p>}
+                                {job.start_time && <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '2px' }}>Started: {new Date(job.start_time).toLocaleString()}</p>}
+                                {job.end_time && <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '4px' }}>Completed: {new Date(job.end_time).toLocaleString()}</p>}
 
-                              {/* Time Tracking */}
-                              {job.estimated_duration_minutes && (
-                                <p style={{ fontSize: '11px', color: theme.textSecondary, marginTop: '4px' }}>
-                                  ⏱️ Est: {job.estimated_duration_minutes >= 60 ? `${Math.floor(job.estimated_duration_minutes / 60)}h ${job.estimated_duration_minutes % 60}m` : `${job.estimated_duration_minutes}m`}
-                                  {job.actual_duration_minutes && (
-                                    <span style={{ marginLeft: '8px', color: job.actual_duration_minutes <= job.estimated_duration_minutes ? '#059669' : '#dc2626', fontWeight: '600' }}>
-                                      | Actual: {job.actual_duration_minutes >= 60 ? `${Math.floor(job.actual_duration_minutes / 60)}h ${job.actual_duration_minutes % 60}m` : `${job.actual_duration_minutes}m`}
-                                      {job.actual_duration_minutes <= job.estimated_duration_minutes
-                                        ? ` ✓`
-                                        : ` (${job.actual_duration_minutes - job.estimated_duration_minutes}m over)`
-                                      }
-                                    </span>
-                                  )}
-                                </p>
-                              )}
+                                {/* Time Tracking */}
+                                {job.estimated_duration_minutes && (
+                                  <p style={{ fontSize: '11px', color: theme.textSecondary, marginTop: '4px' }}>
+                                    ⏱️ Est: {job.estimated_duration_minutes >= 60 ? `${Math.floor(job.estimated_duration_minutes / 60)}h ${job.estimated_duration_minutes % 60}m` : `${job.estimated_duration_minutes}m`}
+                                    {job.actual_duration_minutes && (
+                                      <span style={{ marginLeft: '8px', color: job.actual_duration_minutes <= job.estimated_duration_minutes ? '#059669' : '#dc2626', fontWeight: '600' }}>
+                                        | Actual: {job.actual_duration_minutes >= 60 ? `${Math.floor(job.actual_duration_minutes / 60)}h ${job.actual_duration_minutes % 60}m` : `${job.actual_duration_minutes}m`}
+                                        {job.actual_duration_minutes <= job.estimated_duration_minutes
+                                          ? ` ✓`
+                                          : ` (${job.actual_duration_minutes - job.estimated_duration_minutes}m over)`
+                                        }
+                                      </span>
+                                    )}
+                                  </p>
+                                )}
 
-                              {/* Change Worker UI */}
-                              {editingJobId === job.id && (
-                                <div style={{ marginTop: '8px', padding: '8px', background: theme.cardBg, borderRadius: '6px', border: '1px solid #d1d5db' }}>
-                                  <p style={{ fontSize: '11px', fontWeight: '600', marginBottom: '6px' }}>Change Worker:</p>
-                                  <select
-                                    value={newWorkerId}
-                                    onChange={(e) => setNewWorkerId(e.target.value)}
-                                    style={{ width: '100%', padding: '6px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '12px', marginBottom: '6px' }}
-                                  >
-                                    <option value="">Select Worker</option>
-                                    {workers.map(w => (
-                                      <option key={w.id} value={w.id}>{w.name}</option>
-                                    ))}
-                                  </select>
-                                  <div style={{ display: 'flex', gap: '6px' }}>
-                                    <button
-                                      onClick={() => changeWorker(job.id, newWorkerId)}
-                                      style={{ flex: 1, padding: '4px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}
+                                {/* Change Worker UI */}
+                                {editingJobId === job.id && (
+                                  <div style={{ marginTop: '8px', padding: '8px', background: theme.cardBg, borderRadius: '6px', border: '1px solid #d1d5db' }}>
+                                    <p style={{ fontSize: '11px', fontWeight: '600', marginBottom: '6px' }}>Change Worker:</p>
+                                    <select
+                                      value={newWorkerId}
+                                      onChange={(e) => setNewWorkerId(e.target.value)}
+                                      style={{ width: '100%', padding: '6px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '12px', marginBottom: '6px' }}
                                     >
-                                      Save
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setEditingJobId(null);
-                                        setNewWorkerId('');
-                                      }}
-                                      style={{ flex: 1, padding: '4px', background: '#d1d5db', color: theme.text, border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}
-                                    >
-                                      Cancel
-                                    </button>
+                                      <option value="">Select Worker</option>
+                                      {workers.map(w => (
+                                        <option key={w.id} value={w.id}>{w.name}</option>
+                                      ))}
+                                    </select>
+                                    <div style={{ display: 'flex', gap: '6px' }}>
+                                      <button
+                                        onClick={() => changeWorker(job.id, newWorkerId)}
+                                        style={{ flex: 1, padding: '4px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}
+                                      >
+                                        Save
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setEditingJobId(null);
+                                          setNewWorkerId('');
+                                        }}
+                                        style={{ flex: 1, padding: '4px', background: '#d1d5db', color: theme.text, border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
                                   </div>
-                                </div>
-                              )}
+                                )}
 
-                              {/* Job Photos */}
-                              {job.job_photos && job.job_photos.length > 0 && (
-                                <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e5e7eb' }}>
-                                  <p style={{ fontWeight: '600', marginBottom: '6px', fontSize: '11px' }}>Photos ({job.job_photos.length}):</p>
-                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px' }}>
-                                    {job.job_photos.slice(0, 4).map((photo, idx) => (
-                                      <div
-                                        key={idx}
+                                {/* Job Photos */}
+                                {job.job_photos && job.job_photos.length > 0 && (
+                                  <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e5e7eb' }}>
+                                    <p style={{ fontWeight: '600', marginBottom: '6px', fontSize: '11px' }}>Photos ({job.job_photos.length}):</p>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px' }}>
+                                      {job.job_photos.slice(0, 4).map((photo, idx) => (
+                                        <div
+                                          key={idx}
+                                          onClick={() => {
+                                            setSelectedPhotos(job.job_photos);
+                                            setCurrentPhotoIndex(idx);
+                                            setPhotoViewerOpen(true);
+                                          }}
+                                          style={{ position: 'relative', cursor: 'pointer', transition: 'transform 0.2s' }}
+                                          onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                          onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                        >
+                                          <img src={photo.photo_url} alt={photo.photo_type} style={{ width: '100%', height: '60px', objectFit: 'cover', borderRadius: '4px' }} />
+                                          <span style={{ position: 'absolute', bottom: '2px', left: '2px', background: 'rgba(0,0,0,0.7)', color: 'white', fontSize: '8px', padding: '2px 4px', borderRadius: '3px' }}>{photo.photo_type}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    {job.job_photos.length > 4 && (
+                                      <button
                                         onClick={() => {
                                           setSelectedPhotos(job.job_photos);
-                                          setCurrentPhotoIndex(idx);
+                                          setCurrentPhotoIndex(0);
                                           setPhotoViewerOpen(true);
                                         }}
-                                        style={{ position: 'relative', cursor: 'pointer', transition: 'transform 0.2s' }}
-                                        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                                        onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                        style={{ marginTop: '6px', padding: '4px 8px', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '4px', fontSize: '10px', cursor: 'pointer', width: '100%' }}
                                       >
-                                        <img src={photo.photo_url} alt={photo.photo_type} style={{ width: '100%', height: '60px', objectFit: 'cover', borderRadius: '4px' }} />
-                                        <span style={{ position: 'absolute', bottom: '2px', left: '2px', background: 'rgba(0,0,0,0.7)', color: 'white', fontSize: '8px', padding: '2px 4px', borderRadius: '3px' }}>{photo.photo_type}</span>
-                                      </div>
-                                    ))}
+                                        View all {job.job_photos.length} photos
+                                      </button>
+                                    )}
                                   </div>
-                                  {job.job_photos.length > 4 && (
-                                    <button
-                                      onClick={() => {
-                                        setSelectedPhotos(job.job_photos);
-                                        setCurrentPhotoIndex(0);
-                                        setPhotoViewerOpen(true);
-                                      }}
-                                      style={{ marginTop: '6px', padding: '4px 8px', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '4px', fontSize: '10px', cursor: 'pointer', width: '100%' }}
-                                    >
-                                      View all {job.job_photos.length} photos
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
     );
@@ -3111,7 +3196,7 @@ const AdminDashboard = () => {
     return (
       <div style={{ padding: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 'bold' }}>Today's Jobs <span style={{ fontSize: '16px', color: theme.textSecondary, fontWeight: 'normal' }}>({filteredJobs.length})</span></h2>
+          <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: theme.text }}>Today's Jobs <span style={{ fontSize: '16px', color: theme.textSecondary, fontWeight: 'normal' }}>({filteredJobs.length})</span></h2>
           {/* Auto-refresh toggle */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: theme.cardBg, padding: '6px 10px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             <span style={{ fontSize: '12px', color: theme.textSecondary }}>Auto-refresh</span>
@@ -3124,10 +3209,10 @@ const AdminDashboard = () => {
             {autoRefresh && <span style={{ fontSize: '10px', color: '#10b981' }}>●</span>}
           </div>
           <div style={{ display: 'flex', background: theme.hover, borderRadius: '6px', padding: '2px' }}>
-            <button onClick={() => setViewModes({...viewModes, today: 'grid'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.today === 'grid' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.today === 'grid' ? '#2563eb' : theme.textSecondary }}>
+            <button onClick={() => setViewModes({ ...viewModes, today: 'grid' })} style={{ padding: '6px 12px', border: 'none', background: viewModes.today === 'grid' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.today === 'grid' ? '#2563eb' : theme.textSecondary }}>
               <Grid3x3 size={14} /> Grid
             </button>
-            <button onClick={() => setViewModes({...viewModes, today: 'list'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.today === 'list' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.today === 'list' ? '#2563eb' : theme.textSecondary }}>
+            <button onClick={() => setViewModes({ ...viewModes, today: 'list' })} style={{ padding: '6px 12px', border: 'none', background: viewModes.today === 'list' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.today === 'list' ? '#2563eb' : theme.textSecondary }}>
               <List size={14} /> List
             </button>
           </div>
@@ -3141,10 +3226,10 @@ const AdminDashboard = () => {
             {filteredJobs.map(job => (
               <div key={job.id} style={{ background: theme.cardBg, borderRadius: '12px', padding: '16px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', border: job.is_vip ? '2px solid #fbbf24' : '1px solid #e5e7eb' }}>
                 {job.is_vip && <span style={{ fontSize: '10px', background: '#fef3c7', color: '#92400e', padding: '2px 6px', borderRadius: '4px', marginBottom: '8px', display: 'inline-block' }}>⭐ VIP</span>}
-                <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '8px' }}>{job.properties?.property_name}</h3>
+                <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '8px', color: theme.text }}>{job.properties?.property_name}</h3>
                 <p style={{ color: theme.textSecondary, marginBottom: '4px', fontSize: '13px' }}>👤 {job.workers?.name}</p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
-                  <span style={{ padding: '4px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '500', background: job.status === 'completed' ? '#d1fae5' : job.status === 'in_progress' ? '#fef3c7' : '#dbeafe', color: job.status === 'completed' ? '#065f46' : job.status === 'in_progress' ? '#92400e' : '#1e40af' }}>
+                  <span style={{ padding: '4px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '500', background: job.status === 'completed' ? '#d1fae5' : job.status === 'in_progress' ? '#fef3c7' : (darkTheme ? '#1e3a8a' : '#dbeafe'), color: job.status === 'completed' ? '#065f46' : job.status === 'in_progress' ? '#92400e' : (darkTheme ? '#bae6fd' : '#1e40af') }}>
                     {job.status}
                   </span>
                   {job.published && <span style={{ fontSize: '10px' }}>👁️</span>}
@@ -3155,7 +3240,7 @@ const AdminDashboard = () => {
         ) : (
           <div style={{ background: theme.cardBg, borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
             {/* Table Header */}
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1fr 1fr 0.8fr 60px', gap: '12px', padding: '10px 12px', background: theme.hover, borderBottom: '1px solid #e5e7eb', fontSize: '11px', fontWeight: '600', color: theme.textSecondary }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1fr 1fr 0.8fr 60px', gap: '12px', padding: '10px 12px', background: theme.hover, borderBottom: `1px solid ${theme.border}`, fontSize: '11px', fontWeight: 'bold', color: theme.text }}>
               <div>Property</div>
               <div>Worker</div>
               <div>Status</div>
@@ -3173,19 +3258,20 @@ const AdminDashboard = () => {
                   gridTemplateColumns: '2fr 1.5fr 1fr 1fr 0.8fr 60px',
                   gap: '12px',
                   padding: '8px 12px',
-                  borderBottom: '1px solid #f3f4f6',
-                  background: job.is_vip ? '#fef2f2' : 'white',
+                  borderBottom: `1px solid ${theme.border}`,
+                  background: job.is_vip ? (darkTheme ? '#451a03' : '#fef2f2') : theme.cardBg,
                   fontSize: '12px',
                   alignItems: 'center',
-                  transition: 'background 0.2s'
+                  transition: 'background 0.2s',
+                  color: theme.text
                 }}
-                onMouseOver={(e) => e.currentTarget.style.background = job.is_vip ? '#fee2e2' : '#f9fafb'}
-                onMouseOut={(e) => e.currentTarget.style.background = job.is_vip ? '#fef2f2' : 'white'}
+                onMouseOver={(e) => e.currentTarget.style.background = job.is_vip ? (darkTheme ? '#78350f' : '#fee2e2') : theme.hover}
+                onMouseOut={(e) => e.currentTarget.style.background = job.is_vip ? (darkTheme ? '#451a03' : '#fef2f2') : theme.cardBg}
               >
                 {/* Property Name */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
                   {job.is_vip && <span style={{ fontSize: '10px' }}>⭐</span>}
-                  <span style={{ fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={job.properties?.property_name}>
+                  <span style={{ fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: theme.text }} title={job.properties?.property_name}>
                     {job.properties?.property_name}
                   </span>
                 </div>
@@ -3322,7 +3408,7 @@ const AdminDashboard = () => {
     return (
       <div style={{ padding: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 'bold' , color: theme.text }}>Completed Jobs</h2>
+          <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: theme.text }}>Completed Jobs</h2>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             {/* Auto-refresh toggle */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: theme.cardBg, padding: '6px 10px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
@@ -3336,10 +3422,10 @@ const AdminDashboard = () => {
               {autoRefresh && <span style={{ fontSize: '10px', color: '#10b981' }}>●</span>}
             </div>
             <div style={{ display: 'flex', background: theme.hover, borderRadius: '6px', padding: '2px' }}>
-              <button onClick={() => setViewModes({...viewModes, completed: 'grid'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.completed === 'grid' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.completed === 'grid' ? '#2563eb' : theme.textSecondary }}>
+              <button onClick={() => setViewModes({ ...viewModes, completed: 'grid' })} style={{ padding: '6px 12px', border: 'none', background: viewModes.completed === 'grid' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.completed === 'grid' ? '#2563eb' : theme.textSecondary }}>
                 <Grid3x3 size={14} /> Grid
               </button>
-              <button onClick={() => setViewModes({...viewModes, completed: 'list'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.completed === 'list' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.completed === 'list' ? '#2563eb' : theme.textSecondary }}>
+              <button onClick={() => setViewModes({ ...viewModes, completed: 'list' })} style={{ padding: '6px 12px', border: 'none', background: viewModes.completed === 'list' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.completed === 'list' ? '#2563eb' : theme.textSecondary }}>
                 <List size={14} /> List
               </button>
             </div>
@@ -3366,9 +3452,9 @@ const AdminDashboard = () => {
                     style={{
                       padding: '6px 10px',
                       borderRadius: '6px',
-                      border: dateFilter === filter.value ? '2px solid #10b981' : '1px solid #d1d5db',
-                      background: dateFilter === filter.value ? '#d1fae515' : 'white',
-                      color: dateFilter === filter.value ? '#059669' : '#6b7280',
+                      border: dateFilter === filter.value ? '2px solid #10b981' : `1px solid ${theme.border}`,
+                      background: dateFilter === filter.value ? (darkTheme ? 'rgba(16, 185, 129, 0.2)' : '#d1fae515') : theme.cardBg,
+                      color: dateFilter === filter.value ? '#059669' : theme.textSecondary,
                       cursor: 'pointer',
                       fontSize: '12px',
                       fontWeight: dateFilter === filter.value ? '600' : '500'
@@ -3397,7 +3483,7 @@ const AdminDashboard = () => {
           </div>
 
           {/* Results count */}
-          <div style={{ marginTop: '12px', padding: '10px', background: '#f0fdf4', borderRadius: '6px', borderLeft: '4px solid #10b981' }}>
+          <div style={{ marginTop: '12px', padding: '10px', background: darkTheme ? 'rgba(16, 185, 129, 0.1)' : '#f0fdf4', borderRadius: '6px', borderLeft: '4px solid #10b981' }}>
             <p style={{ fontSize: '13px', color: '#059669', margin: 0, fontWeight: '600' }}>
               Showing {completedJobs.length} completed jobs
               {dateFilter !== 'all' && ` • ${dateFilter === 'today' ? 'Today' : dateFilter === 'week' ? 'Last 7 days' : 'Last 30 days'}`}
@@ -3408,143 +3494,143 @@ const AdminDashboard = () => {
 
         {viewModes.completed === 'grid' ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px' }}>
-          {completedJobs.filter(j => j.properties?.property_name.toLowerCase().includes(searchTerm.toLowerCase()) || j.workers?.name.toLowerCase().includes(searchTerm.toLowerCase())).map(job => (
-            <div key={job.id} style={{ background: theme.cardBg, borderRadius: '12px', padding: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', flexWrap: 'wrap' }}>
-                <h3 style={{ fontSize: '18px', fontWeight: 'bold' }}>{job.properties?.name}</h3>
-                <span style={{padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '500', background: '#d1fae5', color: '#065f46'}}>completed</span>
-              </div>
-              <p style={{ color: theme.textSecondary, marginBottom: '5px', fontSize: '14px' }}>Worker: {job.workers?.name}</p>
-              <p style={{ color: theme.textSecondary, marginBottom: '5px', fontSize: '13px' }}>📅 {job.scheduled_date}</p>
-              {job.started_at && <p style={{ fontSize: '12px', color: '#10b981', marginBottom: '4px' }}>▶ Started: {new Date(job.started_at).toLocaleString()}</p>}
-              {job.finished_at && <p style={{ fontSize: '12px', color: '#059669', marginBottom: '8px', fontWeight: '600' }}>✓ Completed: {new Date(job.finished_at).toLocaleString()}</p>}
-
-              {/* Time Tracking */}
-              {(job.estimated_duration_minutes || job.actual_duration_minutes) && (
-                <div style={{ marginTop: '10px', padding: '10px', background: theme.hover, borderRadius: '8px', fontSize: '13px' }}>
-                  {job.estimated_duration_minutes && (
-                    <div style={{ marginBottom: '4px', color: theme.textSecondary }}>
-                      ⏱️ Estimated: {job.estimated_duration_minutes >= 60 ? `${Math.floor(job.estimated_duration_minutes / 60)}h ${job.estimated_duration_minutes % 60}m` : `${job.estimated_duration_minutes}m`}
-                    </div>
-                  )}
-                  {job.actual_duration_minutes && (
-                    <div style={{ color: '#059669', fontWeight: '600' }}>
-                      ✓ Actual: {job.actual_duration_minutes >= 60 ? `${Math.floor(job.actual_duration_minutes / 60)}h ${job.actual_duration_minutes % 60}m` : `${job.actual_duration_minutes}m`}
-                    </div>
-                  )}
-                  {job.estimated_duration_minutes && job.actual_duration_minutes && (
-                    <div style={{ marginTop: '4px', fontSize: '11px', color: job.actual_duration_minutes <= job.estimated_duration_minutes ? '#059669' : '#dc2626' }}>
-                      {job.actual_duration_minutes <= job.estimated_duration_minutes
-                        ? `✓ On time (${job.estimated_duration_minutes - job.actual_duration_minutes}m under)`
-                        : `⚠️ Over time (${job.actual_duration_minutes - job.estimated_duration_minutes}m over)`
-                      }
-                    </div>
-                  )}
+            {completedJobs.filter(j => j.properties?.property_name.toLowerCase().includes(searchTerm.toLowerCase()) || j.workers?.name.toLowerCase().includes(searchTerm.toLowerCase())).map(job => (
+              <div key={job.id} style={{ background: theme.cardBg, borderRadius: '12px', padding: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                  <h3 style={{ fontSize: '18px', fontWeight: 'bold' }}>{job.properties?.name}</h3>
+                  <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '500', background: '#d1fae5', color: '#065f46' }}>completed</span>
                 </div>
-              )}
+                <p style={{ color: theme.textSecondary, marginBottom: '5px', fontSize: '14px' }}>Worker: {job.workers?.name}</p>
+                <p style={{ color: theme.textSecondary, marginBottom: '5px', fontSize: '13px' }}>📅 {job.scheduled_date}</p>
+                {job.started_at && <p style={{ fontSize: '12px', color: '#10b981', marginBottom: '4px' }}>▶ Started: {new Date(job.started_at).toLocaleString()}</p>}
+                {job.finished_at && <p style={{ fontSize: '12px', color: '#059669', marginBottom: '8px', fontWeight: '600' }}>✓ Completed: {new Date(job.finished_at).toLocaleString()}</p>}
 
-              {/* Job Photos */}
-              {job.job_photos && job.job_photos.length > 0 && (
-                <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e5e7eb' }}>
-                  <p style={{ fontWeight: '600', marginBottom: '8px', fontSize: '13px' }}>Photos ({job.job_photos.length}):</p>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
-                    {job.job_photos.slice(0, 4).map((photo, idx) => (
-                      <div
-                        key={idx}
+                {/* Time Tracking */}
+                {(job.estimated_duration_minutes || job.actual_duration_minutes) && (
+                  <div style={{ marginTop: '10px', padding: '10px', background: theme.hover, borderRadius: '8px', fontSize: '13px' }}>
+                    {job.estimated_duration_minutes && (
+                      <div style={{ marginBottom: '4px', color: theme.textSecondary }}>
+                        ⏱️ Estimated: {job.estimated_duration_minutes >= 60 ? `${Math.floor(job.estimated_duration_minutes / 60)}h ${job.estimated_duration_minutes % 60}m` : `${job.estimated_duration_minutes}m`}
+                      </div>
+                    )}
+                    {job.actual_duration_minutes && (
+                      <div style={{ color: '#059669', fontWeight: '600' }}>
+                        ✓ Actual: {job.actual_duration_minutes >= 60 ? `${Math.floor(job.actual_duration_minutes / 60)}h ${job.actual_duration_minutes % 60}m` : `${job.actual_duration_minutes}m`}
+                      </div>
+                    )}
+                    {job.estimated_duration_minutes && job.actual_duration_minutes && (
+                      <div style={{ marginTop: '4px', fontSize: '11px', color: job.actual_duration_minutes <= job.estimated_duration_minutes ? '#059669' : '#dc2626' }}>
+                        {job.actual_duration_minutes <= job.estimated_duration_minutes
+                          ? `✓ On time (${job.estimated_duration_minutes - job.actual_duration_minutes}m under)`
+                          : `⚠️ Over time (${job.actual_duration_minutes - job.estimated_duration_minutes}m over)`
+                        }
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Job Photos */}
+                {job.job_photos && job.job_photos.length > 0 && (
+                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e5e7eb' }}>
+                    <p style={{ fontWeight: '600', marginBottom: '8px', fontSize: '13px' }}>Photos ({job.job_photos.length}):</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+                      {job.job_photos.slice(0, 4).map((photo, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            setSelectedPhotos(job.job_photos);
+                            setCurrentPhotoIndex(idx);
+                            setPhotoViewerOpen(true);
+                          }}
+                          style={{ position: 'relative', cursor: 'pointer', transition: 'transform 0.2s' }}
+                          onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                          onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                        >
+                          <img src={photo.photo_url} alt={photo.photo_type} style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '6px' }} />
+                          <span style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.7)', color: 'white', fontSize: '10px', padding: '2px 6px', borderRadius: '4px' }}>{photo.photo_type}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {job.job_photos.length > 4 && (
+                      <button
                         onClick={() => {
                           setSelectedPhotos(job.job_photos);
-                          setCurrentPhotoIndex(idx);
+                          setCurrentPhotoIndex(0);
                           setPhotoViewerOpen(true);
                         }}
-                        style={{ position: 'relative', cursor: 'pointer', transition: 'transform 0.2s' }}
-                        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                        onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                        style={{ marginTop: '8px', padding: '6px 12px', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', width: '100%' }}
                       >
-                        <img src={photo.photo_url} alt={photo.photo_type} style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '6px' }} />
-                        <span style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.7)', color: 'white', fontSize: '10px', padding: '2px 6px', borderRadius: '4px' }}>{photo.photo_type}</span>
-                      </div>
-                    ))}
-                  </div>
-                  {job.job_photos.length > 4 && (
+                        View all {job.job_photos.length} photos
+                      </button>
+                    )}
                     <button
-                      onClick={() => {
-                        setSelectedPhotos(job.job_photos);
-                        setCurrentPhotoIndex(0);
-                        setPhotoViewerOpen(true);
+                      onClick={async () => {
+                        // Download all photos by fetching and creating blob URLs
+                        for (let i = 0; i < job.job_photos.length; i++) {
+                          const photo = job.job_photos[i];
+                          try {
+                            // Fetch the image as blob
+                            const response = await fetch(photo.photo_url);
+                            const blob = await response.blob();
+                            const blobUrl = URL.createObjectURL(blob);
+
+                            // Create download link
+                            const link = document.createElement('a');
+                            link.href = blobUrl;
+                            link.download = `${job.properties?.property_name.replace(/\s/g, '_')}_${photo.photo_type}_${i + 1}.jpg`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+
+                            // Clean up blob URL
+                            URL.revokeObjectURL(blobUrl);
+
+                            // Delay to prevent browser blocking
+                            await new Promise(resolve => setTimeout(resolve, 500));
+                          } catch (error) {
+                            console.error('Error downloading photo:', error);
+                          }
+                        }
+                        alert(`Downloaded ${job.job_photos.length} photos!`);
                       }}
-                      style={{ marginTop: '8px', padding: '6px 12px', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', width: '100%' }}
+                      style={{ marginTop: '8px', padding: '6px 12px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', width: '100%', fontWeight: '600' }}
                     >
-                      View all {job.job_photos.length} photos
+                      ⬇️ Download All Photos ({job.job_photos.length})
+                    </button>
+                  </div>
+                )}
+
+                {/* Send to Client and Download Photos Buttons */}
+                <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => generateClientReport(job)}
+                    style={{ flex: 1, padding: '10px 12px', background: '#0891b2', color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                  >
+                    📧 Report
+                  </button>
+                  {job.job_photos && job.job_photos.length > 0 && (
+                    <button
+                      onClick={async () => {
+                        const report = {
+                          photos: job.job_photos || [],
+                          propertyName: properties.find(p => p.id === job.property_id)?.property_name || 'Property'
+                        };
+                        setClientReportData(report);
+                        await downloadPhotosAsZip();
+                      }}
+                      style={{ flex: 1, padding: '10px 12px', background: '#8b5cf6', color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                    >
+                      📦 Photos ZIP
                     </button>
                   )}
-                  <button
-                    onClick={async () => {
-                      // Download all photos by fetching and creating blob URLs
-                      for (let i = 0; i < job.job_photos.length; i++) {
-                        const photo = job.job_photos[i];
-                        try {
-                          // Fetch the image as blob
-                          const response = await fetch(photo.photo_url);
-                          const blob = await response.blob();
-                          const blobUrl = URL.createObjectURL(blob);
-
-                          // Create download link
-                          const link = document.createElement('a');
-                          link.href = blobUrl;
-                          link.download = `${job.properties?.property_name.replace(/\s/g, '_')}_${photo.photo_type}_${i + 1}.jpg`;
-                          document.body.appendChild(link);
-                          link.click();
-                          document.body.removeChild(link);
-
-                          // Clean up blob URL
-                          URL.revokeObjectURL(blobUrl);
-
-                          // Delay to prevent browser blocking
-                          await new Promise(resolve => setTimeout(resolve, 500));
-                        } catch (error) {
-                          console.error('Error downloading photo:', error);
-                        }
-                      }
-                      alert(`Downloaded ${job.job_photos.length} photos!`);
-                    }}
-                    style={{ marginTop: '8px', padding: '6px 12px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', width: '100%', fontWeight: '600' }}
-                  >
-                    ⬇️ Download All Photos ({job.job_photos.length})
-                  </button>
                 </div>
-              )}
-
-              {/* Send to Client and Download Photos Buttons */}
-              <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
-                <button
-                  onClick={() => generateClientReport(job)}
-                  style={{ flex: 1, padding: '10px 12px', background: '#0891b2', color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
-                >
-                  📧 Report
-                </button>
-                {job.job_photos && job.job_photos.length > 0 && (
-                  <button
-                    onClick={async () => {
-                      const report = {
-                        photos: job.job_photos || [],
-                        propertyName: properties.find(p => p.id === job.property_id)?.property_name || 'Property'
-                      };
-                      setClientReportData(report);
-                      await downloadPhotosAsZip();
-                    }}
-                    style={{ flex: 1, padding: '10px 12px', background: '#8b5cf6', color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
-                  >
-                    📦 Photos ZIP
-                  </button>
-                )}
               </div>
-            </div>
-          ))}
-          {completedJobs.length === 0 && <p style={{ textAlign: 'center', color: theme.textSecondary, padding: '40px', gridColumn: '1 / -1' }}>No completed jobs yet</p>}
-        </div>
+            ))}
+            {completedJobs.length === 0 && <p style={{ textAlign: 'center', color: theme.textSecondary, padding: '40px', gridColumn: '1 / -1' }}>No completed jobs yet</p>}
+          </div>
         ) : (
           <div style={{ background: theme.cardBg, borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1fr 1.5fr 1.5fr 80px 200px', gap: '12px', padding: '10px 12px', background: theme.hover, borderBottom: '1px solid #e5e7eb', fontSize: '11px', fontWeight: '600', color: theme.textSecondary }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1fr 1.5fr 1.5fr 80px 200px', gap: '12px', padding: '10px 12px', background: theme.hover, borderBottom: `1px solid ${theme.border}`, fontSize: '11px', fontWeight: '600', color: theme.textSecondary }}>
               <div>Property</div>
               <div>Worker</div>
               <div>Date</div>
@@ -3554,7 +3640,7 @@ const AdminDashboard = () => {
               <div>Actions</div>
             </div>
             {completedJobs.filter(j => j.properties?.property_name.toLowerCase().includes(searchTerm.toLowerCase()) || j.workers?.name.toLowerCase().includes(searchTerm.toLowerCase())).map(job => (
-              <div key={job.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1fr 1.5fr 1.5fr 80px 200px', gap: '12px', padding: '12px', borderBottom: '1px solid #f3f4f6', fontSize: '13px', alignItems: 'center' }}>
+              <div key={job.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1fr 1.5fr 1.5fr 80px 200px', gap: '12px', padding: '12px', borderBottom: `1px solid ${theme.border}`, fontSize: '13px', alignItems: 'center' }}>
                 <div style={{ fontWeight: '600' }}>{job.properties?.property_name}</div>
                 <div style={{ color: theme.textSecondary }}>{job.workers?.name}</div>
                 <div style={{ color: theme.textSecondary, fontSize: '12px' }}>{job.scheduled_date}</div>
@@ -3568,7 +3654,7 @@ const AdminDashboard = () => {
                         setCurrentPhotoIndex(0);
                         setPhotoViewerOpen(true);
                       }}
-                      style={{ padding: '4px 8px', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '4px', fontSize: '11px', cursor: 'pointer', fontWeight: '500' }}
+                      style={{ padding: '4px 8px', background: darkTheme ? 'rgba(37, 99, 235, 0.2)' : '#eff6ff', color: darkTheme ? '#60a5fa' : '#2563eb', border: darkTheme ? '1px solid #1e40af' : '1px solid #bfdbfe', borderRadius: '4px', fontSize: '11px', cursor: 'pointer', fontWeight: '500' }}
                     >
                       {job.job_photos.length} 📷
                     </button>
@@ -3627,7 +3713,7 @@ const AdminDashboard = () => {
     return (
       <div style={{ padding: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 'bold' , color: theme.text }}>Pending Jobs</h2>
+          <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: theme.text }}>Pending Jobs</h2>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             {/* Auto-refresh toggle */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: theme.cardBg, padding: '6px 10px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
@@ -3641,10 +3727,10 @@ const AdminDashboard = () => {
               {autoRefresh && <span style={{ fontSize: '10px', color: '#10b981' }}>●</span>}
             </div>
             <div style={{ display: 'flex', background: theme.hover, borderRadius: '6px', padding: '2px' }}>
-              <button onClick={() => setViewModes({...viewModes, pending: 'grid'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.pending === 'grid' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.pending === 'grid' ? '#2563eb' : theme.textSecondary }}>
+              <button onClick={() => setViewModes({ ...viewModes, pending: 'grid' })} style={{ padding: '6px 12px', border: 'none', background: viewModes.pending === 'grid' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.pending === 'grid' ? '#2563eb' : theme.textSecondary }}>
                 <Grid3x3 size={14} /> Grid
               </button>
-              <button onClick={() => setViewModes({...viewModes, pending: 'list'})} style={{ padding: '6px 12px', border: 'none', background: viewModes.pending === 'list' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.pending === 'list' ? '#2563eb' : theme.textSecondary }}>
+              <button onClick={() => setViewModes({ ...viewModes, pending: 'list' })} style={{ padding: '6px 12px', border: 'none', background: viewModes.pending === 'list' ? theme.cardBg : 'transparent', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '500', color: viewModes.pending === 'list' ? '#2563eb' : theme.textSecondary }}>
                 <List size={14} /> List
               </button>
             </div>
@@ -3657,8 +3743,8 @@ const AdminDashboard = () => {
             {pendingJobs.filter(j => j.properties?.property_name.toLowerCase().includes(searchTerm.toLowerCase()) || j.workers?.name.toLowerCase().includes(searchTerm.toLowerCase())).map(job => (
               <div key={job.id} style={{ background: theme.cardBg, borderRadius: '12px', padding: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', flexWrap: 'wrap' }}>
-                  <h3 style={{ fontSize: '18px', fontWeight: 'bold' }}>{job.properties?.name}</h3>
-                  <span style={{padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '500', background: '#dbeafe', color: '#1e40af'}}>assigned</span>
+                  <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: theme.text }}>{job.properties?.name}</h3>
+                  <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '500', background: darkTheme ? '#1e3a8a' : '#dbeafe', color: darkTheme ? '#bae6fd' : '#1e40af' }}>assigned</span>
                 </div>
                 <p style={{ color: theme.textSecondary, marginBottom: '5px', fontSize: '14px' }}>Worker: {job.workers?.name}</p>
                 <p style={{ color: theme.textSecondary, fontSize: '13px' }}>📅 {job.scheduled_date}</p>
@@ -3668,13 +3754,13 @@ const AdminDashboard = () => {
           </div>
         ) : (
           <div style={{ background: theme.cardBg, borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1.5fr', gap: '12px', padding: '10px 12px', background: theme.hover, borderBottom: '1px solid #e5e7eb', fontSize: '11px', fontWeight: '600', color: theme.textSecondary }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1.5fr', gap: '12px', padding: '10px 12px', background: theme.hover, borderBottom: `1px solid ${theme.border}`, fontSize: '11px', fontWeight: '600', color: theme.textSecondary }}>
               <div>Property</div>
               <div>Worker</div>
               <div>Scheduled Date</div>
             </div>
             {pendingJobs.filter(j => j.properties?.property_name.toLowerCase().includes(searchTerm.toLowerCase()) || j.workers?.name.toLowerCase().includes(searchTerm.toLowerCase())).map(job => (
-              <div key={job.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1.5fr', gap: '12px', padding: '12px', borderBottom: '1px solid #f3f4f6', fontSize: '13px', alignItems: 'center' }}>
+              <div key={job.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1.5fr', gap: '12px', padding: '12px', borderBottom: `1px solid ${theme.border}`, fontSize: '13px', alignItems: 'center' }}>
                 <div style={{ fontWeight: '600' }}>{job.properties?.property_name}</div>
                 <div style={{ color: theme.textSecondary }}>{job.workers?.name}</div>
                 <div style={{ color: theme.textSecondary }}>{job.scheduled_date}</div>
@@ -3789,12 +3875,12 @@ const AdminDashboard = () => {
 
         {/* Worker Progress Section */}
         <div style={{ marginBottom: '24px' }}>
-          <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '12px' }}>📊 Worker Progress</h3>
+          <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '12px', color: theme.text }}>📊 Worker Progress</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
             {workerProgress.map(({ worker, total, completed, percentage }) => (
               <div key={worker.id} style={{ background: theme.cardBg, borderRadius: '8px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: percentage === 100 ? '2px solid #10b981' : 'none' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <h4 style={{ fontSize: '16px', fontWeight: '600', margin: 0 }}>
+                  <h4 style={{ fontSize: '16px', fontWeight: '600', margin: 0, color: theme.text }}>
                     {worker.name}
                     {percentage === 100 && <span style={{ marginLeft: '8px' }}>🎉</span>}
                   </h4>
@@ -3804,7 +3890,7 @@ const AdminDashboard = () => {
                 </div>
 
                 {/* Progress bar */}
-                <div style={{ background: '#e5e7eb', borderRadius: '4px', height: '8px', marginBottom: '8px', overflow: 'hidden' }}>
+                <div style={{ background: theme.border, borderRadius: '4px', height: '8px', marginBottom: '8px', overflow: 'hidden' }}>
                   <div style={{
                     background: percentage === 100 ? '#10b981' : percentage >= 75 ? '#3b82f6' : percentage >= 50 ? '#f59e0b' : '#6b7280',
                     height: '100%',
@@ -3826,25 +3912,25 @@ const AdminDashboard = () => {
 
         {/* Date selector */}
         <div style={{ marginBottom: '20px' }}>
-          <label style={{ fontWeight: '600', marginRight: '10px' }}>Select Date:</label>
+          <label style={{ fontWeight: '600', marginRight: '10px', color: theme.text }}>Select Date:</label>
           <input
             type="date"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
-            style={{ padding: '8px', border: '1px solid #d1d5db', borderRadius: '6px' }}
+            style={{ padding: '8px', border: `1px solid ${theme.border}`, borderRadius: '6px', background: theme.inputBg, color: theme.text }}
           />
         </div>
 
         {/* Daily tracking */}
         <div style={{ marginBottom: '30px' }}>
-          <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '12px' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '12px', color: theme.text }}>
             Daily Time - {new Date(selectedDate).toLocaleDateString()}
           </h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
             {workerDailyTime.map(({ worker, totalMinutes, jobCount, jobs }) => (
               <div key={worker.id} style={{ background: theme.cardBg, borderRadius: '8px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                  <h4 style={{ fontSize: '16px', fontWeight: '600' }}>{worker.name}</h4>
+                  <h4 style={{ fontSize: '16px', fontWeight: '600', color: theme.text }}>{worker.name}</h4>
                   <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#2563eb' }}>
                     {formatTime(totalMinutes)}
                   </span>
@@ -3855,7 +3941,7 @@ const AdminDashboard = () => {
                   <div style={{ marginTop: '8px', paddingLeft: '8px', borderLeft: '2px solid #e5e7eb' }}>
                     {jobs.map(job => (
                       <div key={job.id} style={{ fontSize: '12px', padding: '4px 0' }}>
-                        <span style={{ fontWeight: '500' }}>{job.properties?.property_name}</span>
+                        <span style={{ fontWeight: '500', color: theme.text }}>{job.properties?.property_name}</span>
                         <span style={{ color: theme.textSecondary, marginLeft: '8px' }}>
                           {formatTime(job.actual_duration_minutes)}
                         </span>
@@ -3873,22 +3959,22 @@ const AdminDashboard = () => {
 
         {/* Total time (all time) */}
         <div>
-          <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '12px' }}>Total Time (All Time)</h3>
+          <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '12px', color: theme.text }}>Total Time (All Time)</h3>
           <div style={{ background: theme.cardBg, borderRadius: '8px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Worker</th>
-                  <th style={{ padding: '12px', textAlign: 'right', fontWeight: '600' }}>Jobs</th>
-                  <th style={{ padding: '12px', textAlign: 'right', fontWeight: '600' }}>Total Time</th>
-                  <th style={{ padding: '12px', textAlign: 'right', fontWeight: '600' }}>Avg/Job</th>
+                <tr style={{ borderBottom: `2px solid ${theme.border}` }}>
+                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: theme.text }}>Worker</th>
+                  <th style={{ padding: '12px', textAlign: 'right', fontWeight: '600', color: theme.text }}>Jobs</th>
+                  <th style={{ padding: '12px', textAlign: 'right', fontWeight: '600', color: theme.text }}>Total Time</th>
+                  <th style={{ padding: '12px', textAlign: 'right', fontWeight: '600', color: theme.text }}>Avg/Job</th>
                 </tr>
               </thead>
               <tbody>
                 {workerTotalTime.map(({ worker, totalMinutes, jobCount }) => (
-                  <tr key={worker.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                    <td style={{ padding: '12px' }}>{worker.name}</td>
-                    <td style={{ padding: '12px', textAlign: 'right' }}>{jobCount}</td>
+                  <tr key={worker.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
+                    <td style={{ padding: '12px', color: theme.text }}>{worker.name}</td>
+                    <td style={{ padding: '12px', textAlign: 'right', color: theme.text }}>{jobCount}</td>
                     <td style={{ padding: '12px', textAlign: 'right', fontWeight: '600', color: '#2563eb' }}>
                       {formatTime(totalMinutes)}
                     </td>
@@ -3923,7 +4009,7 @@ const AdminDashboard = () => {
     return (
       <div style={{ padding: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h2 style={{ fontSize: '32px', fontWeight: 'bold', margin: 0 }}>⚠️ Reported Issues</h2>
+          <h2 style={{ fontSize: '32px', fontWeight: 'bold', margin: 0, color: theme.text }}>⚠️ Reported Issues</h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: theme.cardBg, padding: '6px 10px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             <span style={{ fontSize: '12px', color: theme.textSecondary }}>Auto-refresh</span>
             <label style={{ position: 'relative', display: 'inline-block', width: '36px', height: '20px', cursor: 'pointer' }}>
@@ -4027,7 +4113,7 @@ const AdminDashboard = () => {
     const [dropdownSearch, setDropdownSearch] = useState('');
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = React.useRef(null);
-    
+
     React.useEffect(() => {
       const handleClickOutside = (event) => {
         if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -4037,27 +4123,27 @@ const AdminDashboard = () => {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
-    
-    const filtered = options.filter(opt => 
+
+    const filtered = options.filter(opt =>
       opt[displayKey].toLowerCase().includes(dropdownSearch.toLowerCase())
     );
-    
+
     const selected = options.find(opt => opt.id === value);
-    
+
     return (
       <div ref={dropdownRef} style={{ position: 'relative' }}>
-        <div onClick={() => setIsOpen(!isOpen)} style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px', cursor: 'pointer', background: 'white' }}>
+        <div onClick={() => setIsOpen(!isOpen)} style={{ border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', padding: '12px', fontSize: '16px', cursor: 'pointer', background: theme.inputBg, color: theme.text }}>
           {selected ? selected[displayKey] : placeholder}
         </div>
         {isOpen && (
-          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: theme.cardBg, border: '1px solid #d1d5db', borderRadius: '8px', marginTop: '4px', maxHeight: '200px', overflow: 'auto', zIndex: 10, boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: theme.cardBg, border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', marginTop: '4px', maxHeight: '200px', overflow: 'auto', zIndex: 10, boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
             <input
               type="text"
               placeholder="Search..."
               value={dropdownSearch}
               onChange={(e) => setDropdownSearch(e.target.value)}
               autoFocus
-              style={{ width: '100%', padding: '8px', border: 'none', borderBottom: '1px solid #e5e7eb', fontSize: '14px', outline: 'none' }}
+              style={{ width: '100%', padding: '8px', border: 'none', borderBottom: `1px solid ${theme.border}`, fontSize: '14px', outline: 'none', background: theme.inputBg, color: theme.text }}
             />
             {filtered.map(opt => (
               <div
@@ -4067,9 +4153,9 @@ const AdminDashboard = () => {
                   setIsOpen(false);
                   setDropdownSearch('');
                 }}
-                style={{ padding: '10px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', background: value === opt.id ? '#eff6ff' : 'white' }}
-                onMouseOver={(e) => e.currentTarget.style.background = '#f9fafb'}
-                onMouseOut={(e) => e.currentTarget.style.background = value === opt.id ? '#eff6ff' : 'white'}
+                style={{ padding: '10px', cursor: 'pointer', borderBottom: `1px solid ${theme.border}`, background: value === opt.id ? (darkTheme ? '#334155' : '#eff6ff') : theme.cardBg, color: theme.text }}
+                onMouseOver={(e) => e.currentTarget.style.background = darkTheme ? '#475569' : '#f9fafb'}
+                onMouseOut={(e) => e.currentTarget.style.background = value === opt.id ? (darkTheme ? '#334155' : '#eff6ff') : theme.cardBg}
               >
                 {opt[displayKey]}
               </div>
@@ -4343,9 +4429,9 @@ const AdminDashboard = () => {
       <div style={{ background: theme.cardBg, boxShadow: '0 1px 3px rgba(0,0,0,0.1)', position: 'sticky', top: 0, zIndex: 10, borderBottom: `1px solid ${theme.border}` }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px', display: 'flex', gap: '24px', overflowX: 'auto' }}>
           {['dashboard', 'workers', 'clients', 'properties', 'jobs', 'map', 'tracking', 'others'].map(tab => (
-            <button key={tab} onClick={() => { setActiveTab(tab); setSearchTerm(''); }} style={{padding: '12px 16px', border: 'none', background: 'none', cursor: 'pointer', fontWeight: '500', textTransform: 'capitalize', borderBottom: activeTab === tab ? '2px solid #2563eb' : '2px solid transparent', color: activeTab === tab ? '#2563eb' : theme.textSecondary, transition: 'all 0.2s', whiteSpace: 'nowrap'}}>{tab === 'tracking' ? 'Worker Tracking' : tab}</button>
+            <button key={tab} onClick={() => { setActiveTab(tab); setSearchTerm(''); }} style={{ padding: '12px 16px', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 'bold', textTransform: 'capitalize', borderBottom: activeTab === tab ? '2px solid #f59e0b' : '2px solid transparent', color: activeTab === tab ? '#f59e0b' : theme.textSecondary, transition: 'all 0.2s', whiteSpace: 'nowrap' }}>{tab === 'tracking' ? 'Worker Tracking' : tab}</button>
           ))}
-          <button onClick={() => { setActiveTab('issues'); setSearchTerm(''); }} style={{padding: '16px', border: 'none', background: 'none', cursor: 'pointer', fontWeight: '500', textTransform: 'capitalize', borderBottom: activeTab === 'issues' ? '2px solid #2563eb' : '2px solid transparent', color: activeTab === 'issues' ? '#2563eb' : theme.textSecondary, transition: 'all 0.2s', whiteSpace: 'nowrap', position: 'relative'}}>
+          <button onClick={() => { setActiveTab('issues'); setSearchTerm(''); }} style={{ padding: '16px', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 'bold', textTransform: 'capitalize', borderBottom: activeTab === 'issues' ? '2px solid #f59e0b' : '2px solid transparent', color: activeTab === 'issues' ? '#f59e0b' : theme.textSecondary, transition: 'all 0.2s', whiteSpace: 'nowrap', position: 'relative' }}>
             Issues
             {issues.filter(i => !i.resolved).length > 0 && (
               <span style={{ position: 'absolute', top: '8px', right: '4px', background: '#ef4444', color: 'white', borderRadius: '10px', padding: '2px 6px', fontSize: '11px', fontWeight: 'bold', minWidth: '18px', textAlign: 'center' }}>
@@ -4412,15 +4498,15 @@ const AdminDashboard = () => {
       {/* Worker Modal */}
       {showWorkerModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-          <div style={{ background: theme.cardBg, borderRadius: '12px', padding: '32px', maxWidth: '500px', width: '90%' }}>
+          <div style={{ background: theme.cardBg, borderRadius: '12px', padding: '32px', maxWidth: '500px', width: '90%', color: theme.text }}>
             <h3 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '24px' }}>{editingItem ? 'Edit Worker' : 'Add New Worker'}</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <input type="text" placeholder="Full Name *" value={workerForm.name} onChange={(e) => setWorkerForm({...workerForm, name: e.target.value})} style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px' }} />
-              <input type="email" placeholder="Email *" value={workerForm.email} onChange={(e) => setWorkerForm({...workerForm, email: e.target.value})} style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px' }} />
-              <input type="tel" placeholder="Phone Number" value={workerForm.phone} onChange={(e) => setWorkerForm({...workerForm, phone: e.target.value})} style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px' }} />
+              <input type="text" placeholder="Full Name *" value={workerForm.name} onChange={(e) => setWorkerForm({ ...workerForm, name: e.target.value })} style={{ border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', padding: '12px', fontSize: '16px', background: theme.inputBg, color: theme.text }} />
+              <input type="email" placeholder="Email *" value={workerForm.email} onChange={(e) => setWorkerForm({ ...workerForm, email: e.target.value })} style={{ border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', padding: '12px', fontSize: '16px', background: theme.inputBg, color: theme.text }} />
+              <input type="tel" placeholder="Phone Number" value={workerForm.phone} onChange={(e) => setWorkerForm({ ...workerForm, phone: e.target.value })} style={{ border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', padding: '12px', fontSize: '16px', background: theme.inputBg, color: theme.text }} />
               {!editingItem && (
                 <>
-                  <input type="password" placeholder="Password * (min. 6 characters)" value={workerForm.password} onChange={(e) => setWorkerForm({...workerForm, password: e.target.value})} style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px' }} />
+                  <input type="password" placeholder="Password * (min. 6 characters)" value={workerForm.password} onChange={(e) => setWorkerForm({ ...workerForm, password: e.target.value })} style={{ border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', padding: '12px', fontSize: '16px', background: theme.inputBg, color: theme.text }} />
                   <p style={{ fontSize: '13px', color: theme.textSecondary, margin: '0', padding: '0 4px' }}>⚠️ Save this password - you'll need to share it with the worker</p>
                 </>
               )}
@@ -4436,12 +4522,12 @@ const AdminDashboard = () => {
       {/* Client Modal */}
       {showClientModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-          <div style={{ background: theme.cardBg, borderRadius: '12px', padding: '32px', maxWidth: '500px', width: '90%' }}>
+          <div style={{ background: theme.cardBg, borderRadius: '12px', padding: '32px', maxWidth: '500px', width: '90%', color: theme.text }}>
             <h3 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '24px' }}>{editingItem ? 'Edit Client' : 'Add New Client'}</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <input type="text" placeholder="Client Name *" value={clientForm.name} onChange={(e) => setClientForm({...clientForm, name: e.target.value})} style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px' }} />
-              <input type="email" placeholder="Email" value={clientForm.email} onChange={(e) => setClientForm({...clientForm, email: e.target.value})} style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px' }} />
-              <input type="tel" placeholder="Phone Number" value={clientForm.phone} onChange={(e) => setClientForm({...clientForm, phone: e.target.value})} style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px' }} />
+              <input type="text" placeholder="Client Name *" value={clientForm.name} onChange={(e) => setClientForm({ ...clientForm, name: e.target.value })} style={{ border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', padding: '12px', fontSize: '16px', background: theme.inputBg, color: theme.text }} />
+              <input type="email" placeholder="Email" value={clientForm.email} onChange={(e) => setClientForm({ ...clientForm, email: e.target.value })} style={{ border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', padding: '12px', fontSize: '16px', background: theme.inputBg, color: theme.text }} />
+              <input type="tel" placeholder="Phone Number" value={clientForm.phone} onChange={(e) => setClientForm({ ...clientForm, phone: e.target.value })} style={{ border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', padding: '12px', fontSize: '16px', background: theme.inputBg, color: theme.text }} />
             </div>
             <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
               <button onClick={addOrUpdateClient} style={{ flex: 1, background: '#16a34a', color: 'white', padding: '14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '500', fontSize: '16px' }}>{editingItem ? 'Update' : 'Add'} Client</button>
@@ -4454,7 +4540,7 @@ const AdminDashboard = () => {
       {/* Bulk Client Import Modal */}
       {showBulkClientModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-          <div style={{ background: theme.cardBg, borderRadius: '12px', padding: '32px', maxWidth: '600px', width: '90%' }}>
+          <div style={{ background: theme.cardBg, borderRadius: '12px', padding: '32px', maxWidth: '600px', width: '90%', color: theme.text }}>
             <h3 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '16px' }}>Bulk Import Clients</h3>
             <p style={{ color: theme.textSecondary, fontSize: '14px', marginBottom: '16px' }}>
               Enter one client per line. Format: Name, Email, Phone (separated by commas or tabs)
@@ -4465,7 +4551,7 @@ const AdminDashboard = () => {
               placeholder="John Doe, john@email.com, 123-456-7890&#10;Jane Smith, jane@email.com, 987-654-3210"
               value={bulkClientText}
               onChange={(e) => setBulkClientText(e.target.value)}
-              style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '14px', minHeight: '200px', fontFamily: 'monospace' }}
+              style={{ width: '100%', border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', padding: '12px', fontSize: '14px', minHeight: '200px', fontFamily: 'monospace', background: theme.inputBg, color: theme.text }}
             />
             <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
               <button onClick={bulkImportClients} style={{ flex: 1, background: '#0891b2', color: 'white', padding: '14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '500', fontSize: '16px' }}>
@@ -4602,13 +4688,13 @@ const AdminDashboard = () => {
       {/* Property Modal */}
       {showPropertyModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, overflow: 'auto' }}>
-          <div style={{ background: theme.cardBg, borderRadius: '12px', padding: '32px', maxWidth: '600px', width: '90%', margin: '20px', maxHeight: '90vh', overflow: 'auto' }}>
+          <div style={{ background: theme.cardBg, borderRadius: '12px', padding: '32px', maxWidth: '600px', width: '90%', margin: '20px', maxHeight: '90vh', overflow: 'auto', color: theme.text }}>
             <h3 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '24px' }}>{editingItem ? 'Edit Property' : 'Add New Property'}</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <SearchableDropdown
                 options={clients}
                 value={propertyForm.client_id}
-                onChange={(id) => setPropertyForm({...propertyForm, client_id: id})}
+                onChange={(id) => setPropertyForm({ ...propertyForm, client_id: id })}
                 placeholder="Select Client *"
                 displayKey="name"
               />
@@ -4621,9 +4707,9 @@ const AdminDashboard = () => {
                   type="text"
                   placeholder="Type to search or create new group"
                   value={propertyForm.property_group || ''}
-                  onChange={(e) => setPropertyForm({...propertyForm, property_group: e.target.value})}
+                  onChange={(e) => setPropertyForm({ ...propertyForm, property_group: e.target.value })}
                   list="group-suggestions"
-                  style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px', width: '100%' }}
+                  style={{ border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', padding: '12px', fontSize: '16px', width: '100%', background: theme.inputBg, color: theme.text }}
                 />
                 <datalist id="group-suggestions">
                   <option value="">No Group (Ungrouped)</option>
@@ -4636,10 +4722,10 @@ const AdminDashboard = () => {
                 </p>
               </div>
 
-              <input type="text" placeholder="Property Name (Optional)" value={propertyForm.property_name} onChange={(e) => setPropertyForm({...propertyForm, property_name: e.target.value})} style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px' }} />
+              <input type="text" placeholder="Property Name (Optional)" value={propertyForm.property_name} onChange={(e) => setPropertyForm({ ...propertyForm, property_name: e.target.value })} style={{ border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', padding: '12px', fontSize: '16px', background: theme.inputBg, color: theme.text }} />
 
               <div>
-                <input type="text" placeholder="Full Address *" value={propertyForm.address} onChange={(e) => setPropertyForm({...propertyForm, address: e.target.value})} style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px', width: '100%' }} />
+                <input type="text" placeholder="Full Address *" value={propertyForm.address} onChange={(e) => setPropertyForm({ ...propertyForm, address: e.target.value })} style={{ border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', padding: '12px', fontSize: '16px', width: '100%', background: theme.inputBg, color: theme.text }} />
                 <button
                   type="button"
                   onClick={() => geocodeAddress(propertyForm.address)}
@@ -4650,10 +4736,10 @@ const AdminDashboard = () => {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <input type="text" placeholder="Latitude (auto-filled)" value={propertyForm.latitude} onChange={(e) => setPropertyForm({...propertyForm, latitude: e.target.value})} style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px', background: propertyForm.latitude ? '#f0fdf4' : 'white' }} />
-                <input type="text" placeholder="Longitude (auto-filled)" value={propertyForm.longitude} onChange={(e) => setPropertyForm({...propertyForm, longitude: e.target.value})} style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px', background: propertyForm.longitude ? '#f0fdf4' : 'white' }} />
+                <input type="text" placeholder="Latitude (auto-filled)" value={propertyForm.latitude} onChange={(e) => setPropertyForm({ ...propertyForm, latitude: e.target.value })} style={{ border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', padding: '12px', fontSize: '16px', background: propertyForm.latitude ? (darkTheme ? '#064e3b' : '#f0fdf4') : theme.inputBg, color: theme.text }} />
+                <input type="text" placeholder="Longitude (auto-filled)" value={propertyForm.longitude} onChange={(e) => setPropertyForm({ ...propertyForm, longitude: e.target.value })} style={{ border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', padding: '12px', fontSize: '16px', background: propertyForm.longitude ? (darkTheme ? '#064e3b' : '#f0fdf4') : theme.inputBg, color: theme.text }} />
               </div>
-              
+
               <div style={{ border: '2px dashed #d1d5db', borderRadius: '8px', padding: '20px' }}>
                 <input type="file" accept="image/*" onChange={uploadPropertyPhoto} id="photo-upload" style={{ display: 'none' }} multiple />
                 <label htmlFor="photo-upload" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
@@ -4673,9 +4759,9 @@ const AdminDashboard = () => {
                   </div>
                 )}
               </div>
-              
-              <textarea placeholder="Special Notes" value={propertyForm.special_notes} onChange={(e) => setPropertyForm({...propertyForm, special_notes: e.target.value})} style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px', minHeight: '80px' }} />
-              
+
+              <textarea placeholder="Special Notes" value={propertyForm.special_notes} onChange={(e) => setPropertyForm({ ...propertyForm, special_notes: e.target.value })} style={{ border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', padding: '12px', fontSize: '16px', minHeight: '80px', background: theme.inputBg, color: theme.text }} />
+
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                   <label style={{ fontWeight: '600' }}>Services Checklist * (select at least one)</label>
@@ -4688,11 +4774,11 @@ const AdminDashboard = () => {
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
                   {checklistTemplates.map(item => (
-                    <button key={item} onClick={() => toggleChecklistItem(item)} style={{padding: '8px 16px', borderRadius: '20px', border: selectedChecklistItems.includes(item) ? '2px solid #2563eb' : '2px solid #d1d5db', background: selectedChecklistItems.includes(item) ? '#dbeafe' : 'white', color: selectedChecklistItems.includes(item) ? '#1e40af' : '#6b7280', cursor: 'pointer', fontSize: '14px', fontWeight: '500'}}>{item}</button>
+                    <button key={item} onClick={() => toggleChecklistItem(item)} style={{ padding: '8px 16px', borderRadius: '20px', border: selectedChecklistItems.includes(item) ? '2px solid #2563eb' : `2px solid ${theme.border}`, background: selectedChecklistItems.includes(item) ? (darkTheme ? '#1e3a8a' : '#dbeafe') : theme.cardBg, color: selectedChecklistItems.includes(item) ? (darkTheme ? '#93c5fd' : '#1e40af') : theme.textSecondary, cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>{item}</button>
                   ))}
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <input type="text" placeholder="Add custom service" value={customChecklistItem} onChange={(e) => setCustomChecklistItem(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && addCustomChecklistItem()} style={{ flex: 1, border: '1px solid #d1d5db', borderRadius: '6px', padding: '8px', fontSize: '14px' }} />
+                  <input type="text" placeholder="Add custom service" value={customChecklistItem} onChange={(e) => setCustomChecklistItem(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && addCustomChecklistItem()} style={{ flex: 1, border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', padding: '8px', fontSize: '14px', background: theme.inputBg, color: theme.text }} />
                   <button onClick={addCustomChecklistItem} style={{ padding: '8px 16px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px' }}>+ Add</button>
                 </div>
                 {selectedChecklistItems.length > 0 && (
@@ -4721,29 +4807,29 @@ const AdminDashboard = () => {
       {/* Bulk Import Client+Property Modal */}
       {showBulkImportModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-          <div style={{ background: theme.cardBg, borderRadius: '12px', padding: '32px', maxWidth: '800px', width: '90%', maxHeight: '90vh', overflow: 'auto' }}>
+          <div style={{ background: theme.cardBg, borderRadius: '12px', padding: '32px', maxWidth: '800px', width: '90%', maxHeight: '90vh', overflow: 'auto', color: theme.text }}>
             <h3 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '16px' }}>Bulk Import Clients + Properties</h3>
 
-            <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
-              <p style={{ fontSize: '14px', color: '#0c4a6e', marginBottom: '8px', fontWeight: '600' }}>
+            <div style={{ background: darkTheme ? '#1e3a8a' : '#f0f9ff', border: darkTheme ? '1px solid #1e40af' : '1px solid #bae6fd', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
+              <p style={{ fontSize: '14px', color: darkTheme ? '#bfdbfe' : '#0c4a6e', marginBottom: '8px', fontWeight: '600' }}>
                 CSV Format (one property per line):
               </p>
-              <code style={{ display: 'block', fontSize: '12px', fontFamily: 'monospace', background: theme.cardBg, padding: '8px', borderRadius: '4px', overflowX: 'auto', whiteSpace: 'pre' }}>
-Client Name,Email,Phone,Address,Special Notes,Checklist Items{'\n'}
-John Doe,john@email.com,555-1234,123 Main St,Gate code 1234,"Driveway,Front steps"{'\n'}
-John Doe,john@email.com,555-1234,456 Oak Ave,,{'\n'}
-Jane Smith,jane@email.com,555-5678,789 Pine Rd,Call before arrival,
+              <code style={{ display: 'block', fontSize: '12px', fontFamily: 'monospace', background: theme.cardBg, padding: '8px', borderRadius: '4px', overflowX: 'auto', whiteSpace: 'pre', color: theme.text }}>
+                Client Name,Email,Phone,Address,Special Notes,Checklist Items{'\n'}
+                John Doe,john@email.com,555-1234,123 Main St,Gate code 1234,"Driveway,Front steps"{'\n'}
+                John Doe,john@email.com,555-1234,456 Oak Ave,,{'\n'}
+                Jane Smith,jane@email.com,555-5678,789 Pine Rd,Call before arrival,
               </code>
-              <p style={{ fontSize: '12px', color: '#16a34a', marginTop: '8px', fontWeight: '600' }}>
+              <p style={{ fontSize: '12px', color: darkTheme ? '#4ade80' : '#16a34a', marginTop: '8px', fontWeight: '600' }}>
                 ✓ Addresses are automatically geocoded (lat/lng added automatically)
               </p>
-              <p style={{ fontSize: '12px', color: '#075985', marginTop: '4px' }}>
+              <p style={{ fontSize: '12px', color: darkTheme ? '#93c5fd' : '#075985', marginTop: '4px' }}>
                 ℹ️ Same client on multiple rows = multiple properties for that client
               </p>
-              <p style={{ fontSize: '12px', color: '#075985', marginTop: '4px' }}>
+              <p style={{ fontSize: '12px', color: darkTheme ? '#93c5fd' : '#075985', marginTop: '4px' }}>
                 ℹ️ Checklist items are optional - you can add them later via Edit
               </p>
-              <p style={{ fontSize: '12px', color: '#ea580c', marginTop: '4px' }}>
+              <p style={{ fontSize: '12px', color: darkTheme ? '#fb923c' : '#ea580c', marginTop: '4px' }}>
                 ⚠️ Photos must be added manually after import (use Edit button)
               </p>
             </div>
@@ -4755,7 +4841,7 @@ Jane Smith,jane@email.com,555-5678,789 Pine Rd,Call before arrival,
                 setBulkImportText(e.target.value);
                 setBulkImportPreview(null); // Clear preview on edit
               }}
-              style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '14px', minHeight: '200px', fontFamily: 'monospace' }}
+              style={{ width: '100%', border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', padding: '12px', fontSize: '14px', minHeight: '200px', fontFamily: 'monospace', background: theme.inputBg, color: theme.text }}
             />
 
             <button
@@ -4786,7 +4872,7 @@ Jane Smith,jane@email.com,555-5678,789 Pine Rd,Call before arrival,
                 </div>
 
                 {bulkImportPreview.errors.length > 0 && (
-                  <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px', marginTop: '12px' }}>
+                  <div style={{ background: darkTheme ? 'rgba(127, 29, 29, 0.2)' : '#fef2f2', border: darkTheme ? '1px solid #7f1d1d' : '1px solid #fecaca', borderRadius: '8px', padding: '12px', marginTop: '12px' }}>
                     <h4 style={{ color: '#dc2626', fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
                       ⚠️ Found {bulkImportPreview.errors.length} errors:
                     </h4>
@@ -4846,7 +4932,7 @@ Jane Smith,jane@email.com,555-5678,789 Pine Rd,Call before arrival,
       {/* Group Management Modal */}
       {showGroupModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', zIndex: 50, overflow: 'auto', paddingTop: '20px', paddingRight: '20px' }}>
-          <div style={{ background: theme.cardBg, borderRadius: '12px', padding: '24px', maxWidth: '600px', width: '600px', maxHeight: '95vh', overflow: 'auto', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
+          <div style={{ background: theme.cardBg, borderRadius: '12px', padding: '24px', maxWidth: '600px', width: '600px', maxHeight: '95vh', overflow: 'auto', boxShadow: '0 4px 20px rgba(0,0,0,0.3)', color: theme.text }}>
             <h3 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '24px' }}>
               {editingGroup ? `Edit Group: ${editingGroup}` : 'Create Property Group'}
             </h3>
@@ -4854,16 +4940,16 @@ Jane Smith,jane@email.com,555-5678,789 Pine Rd,Call before arrival,
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {/* Group Name Input */}
               <div>
-                <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: theme.text }}>
                   Group Name *
                 </label>
                 <input
                   type="text"
                   placeholder="e.g., North Zone, Downtown, Industrial Park"
                   value={groupForm.name}
-                  onChange={(e) => setGroupForm({...groupForm, name: e.target.value})}
+                  onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })}
                   maxLength={100}
-                  style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px' }}
+                  style={{ width: '100%', border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', padding: '12px', fontSize: '16px', background: theme.inputBg, color: theme.text }}
                 />
                 <p style={{ fontSize: '12px', color: theme.textSecondary, marginTop: '4px' }}>
                   {groupForm.name.length}/100 characters
@@ -4872,7 +4958,7 @@ Jane Smith,jane@email.com,555-5678,789 Pine Rd,Call before arrival,
 
               {/* Proximity Radius Slider */}
               <div style={{ background: theme.hover, padding: '16px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-                <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: theme.text }}>
                   Proximity Suggestion Radius: {proximityRadius} km
                 </label>
                 <input
@@ -4896,7 +4982,7 @@ Jane Smith,jane@email.com,555-5678,789 Pine Rd,Call before arrival,
 
               {/* Property Selection */}
               <div>
-                <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: theme.text }}>
                   Select Properties * ({groupForm.selectedPropertyIds.length} selected)
                 </label>
 
@@ -4906,11 +4992,11 @@ Jane Smith,jane@email.com,555-5678,789 Pine Rd,Call before arrival,
                     <h4 style={{ fontSize: '13px', fontWeight: '600', color: theme.text, marginBottom: '8px' }}>
                       All Properties ({properties.length})
                     </h4>
-                    <div style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '8px', maxHeight: '250px', overflow: 'auto', background: 'white' }}>
+                    <div style={{ border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', padding: '8px', maxHeight: '250px', overflow: 'auto', background: theme.inputBg, color: theme.text }}>
                       {properties.map(p => (
                         <label
                           key={p.id}
-                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', cursor: 'pointer', borderRadius: '6px', background: groupForm.selectedPropertyIds.includes(p.id) ? '#dbeafe' : 'transparent', marginBottom: '4px' }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', cursor: 'pointer', borderRadius: '6px', background: groupForm.selectedPropertyIds.includes(p.id) ? (darkTheme ? '#374151' : '#dbeafe') : 'transparent', marginBottom: '4px', color: theme.text }}
                         >
                           <input
                             type="checkbox"
@@ -4937,11 +5023,11 @@ Jane Smith,jane@email.com,555-5678,789 Pine Rd,Call before arrival,
                       📍 Nearby Suggestions ({proximitySuggestions.length})
                     </h4>
                     {proximitySuggestions.length > 0 ? (
-                      <div style={{ border: '2px solid #10b981', borderRadius: '8px', padding: '8px', maxHeight: '200px', overflow: 'auto', background: '#f0fdf4' }}>
+                      <div style={{ border: '2px solid #10b981', borderRadius: '8px', padding: '8px', maxHeight: '200px', overflow: 'auto', background: darkTheme ? 'rgba(6, 78, 59, 0.4)' : '#f0fdf4' }}>
                         {proximitySuggestions.map(({ property, distance }) => (
                           <label
                             key={property.id}
-                            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', cursor: 'pointer', borderRadius: '6px', background: groupForm.selectedPropertyIds.includes(property.id) ? '#bbf7d0' : 'white', marginBottom: '4px', border: '1px solid #d1fae5' }}
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', cursor: 'pointer', borderRadius: '6px', background: groupForm.selectedPropertyIds.includes(property.id) ? (darkTheme ? '#065f46' : '#bbf7d0') : (darkTheme ? 'transparent' : 'white'), marginBottom: '4px', border: darkTheme ? '1px solid #064e3b' : '1px solid #d1fae5' }}
                           >
                             <input
                               type="checkbox"
@@ -4949,8 +5035,8 @@ Jane Smith,jane@email.com,555-5678,789 Pine Rd,Call before arrival,
                               onChange={(e) => handlePropertySelectionInGroup(property.id, e.target.checked)}
                             />
                             <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: '13px', fontWeight: '500' }}>{property.property_name}</div>
-                              <div style={{ fontSize: '11px', color: '#059669', fontWeight: '600' }}>
+                              <div style={{ fontSize: '13px', fontWeight: '500', color: theme.text }}>{property.property_name}</div>
+                              <div style={{ fontSize: '11px', color: darkTheme ? '#34d399' : '#059669', fontWeight: '600' }}>
                                 {distance.toFixed(1)} km away
                               </div>
                               <div style={{ fontSize: '10px', color: theme.textSecondary }}>{property.address}</div>
@@ -4997,7 +5083,7 @@ Jane Smith,jane@email.com,555-5678,789 Pine Rd,Call before arrival,
       {/* Job Modal */}
       {showJobModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, overflow: 'auto' }}>
-          <div style={{ background: theme.cardBg, borderRadius: '12px', padding: '32px', maxWidth: '600px', width: '90%', margin: '20px', maxHeight: '90vh', overflow: 'auto' }}>
+          <div style={{ background: theme.cardBg, borderRadius: '12px', padding: '32px', maxWidth: '600px', width: '90%', margin: '20px', maxHeight: '90vh', overflow: 'auto', color: theme.text }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <h3 style={{ fontSize: '24px', fontWeight: 'bold' }}>Assign Job{bulkMode ? 's' : ''}</h3>
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
@@ -5007,7 +5093,7 @@ Jane Smith,jane@email.com,555-5678,789 Pine Rd,Call before arrival,
                   onChange={(e) => {
                     setBulkMode(e.target.checked);
                     setSelectedProperties([]);
-                    setJobForm({...jobForm, property_id: ''});
+                    setJobForm({ ...jobForm, property_id: '' });
                   }}
                 />
                 <span style={{ fontSize: '14px', fontWeight: '500' }}>Bulk Mode</span>
@@ -5018,7 +5104,7 @@ Jane Smith,jane@email.com,555-5678,789 Pine Rd,Call before arrival,
               <SearchableDropdown
                 options={workers}
                 value={jobForm.worker_id}
-                onChange={(id) => setJobForm({...jobForm, worker_id: id})}
+                onChange={(id) => setJobForm({ ...jobForm, worker_id: id })}
                 placeholder="Select Worker *"
                 displayKey="name"
               />
@@ -5027,7 +5113,7 @@ Jane Smith,jane@email.com,555-5678,789 Pine Rd,Call before arrival,
                 <SearchableDropdown
                   options={properties.map(p => ({ ...p, name: `${p.property_name} - ${p.address}` }))}
                   value={jobForm.property_id}
-                  onChange={(id) => setJobForm({...jobForm, property_id: id})}
+                  onChange={(id) => setJobForm({ ...jobForm, property_id: id })}
                   placeholder="Select Property *"
                   displayKey="name"
                 />
@@ -5040,7 +5126,7 @@ Jane Smith,jane@email.com,555-5678,789 Pine Rd,Call before arrival,
                     <select
                       value={quickSelectGroup}
                       onChange={(e) => handleQuickSelectGroup(e.target.value)}
-                      style={{ width: '100%', padding: '12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '16px', background: theme.cardBg, cursor: 'pointer' }}
+                      style={{ width: '100%', padding: '12px', border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', fontSize: '16px', background: theme.cardBg, color: theme.text, cursor: 'pointer' }}
                     >
                       <option value="">-- Select Group to Auto-Fill --</option>
                       <option value="all">All Properties ({properties.length})</option>
@@ -5063,29 +5149,29 @@ Jane Smith,jane@email.com,555-5678,789 Pine Rd,Call before arrival,
                   </div>
                   <div style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', maxHeight: '200px', overflow: 'auto' }}>
                     <p style={{ fontSize: '14px', fontWeight: '600', marginBottom: '10px' }}>Adjust Selection ({selectedProperties.length} selected)</p>
-                  {properties.map(p => (
-                    <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', cursor: 'pointer', borderRadius: '6px', background: selectedProperties.includes(p.id) ? '#eff6ff' : 'transparent' }}>
-                      <input
-                        type="checkbox"
-                        checked={selectedProperties.includes(p.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedProperties([...selectedProperties, p.id]);
-                          } else {
-                            setSelectedProperties(selectedProperties.filter(id => id !== p.id));
-                          }
-                        }}
-                      />
-                      <span style={{ fontSize: '14px' }}>{p.property_name} - {p.address}</span>
-                    </label>
-                  ))}
-                </div>
+                    {properties.map(p => (
+                      <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', cursor: 'pointer', borderRadius: '6px', background: selectedProperties.includes(p.id) ? '#eff6ff' : 'transparent' }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedProperties.includes(p.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedProperties([...selectedProperties, p.id]);
+                            } else {
+                              setSelectedProperties(selectedProperties.filter(id => id !== p.id));
+                            }
+                          }}
+                        />
+                        <span style={{ fontSize: '14px' }}>{p.property_name} - {p.address}</span>
+                      </label>
+                    ))}
+                  </div>
                 </>
               )}
 
               <div>
                 <label style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px', display: 'block' }}>Start Date *</label>
-                <input type="date" value={jobForm.scheduled_date} onChange={(e) => setJobForm({...jobForm, scheduled_date: e.target.value})} style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px' }} />
+                <input type="date" value={jobForm.scheduled_date} onChange={(e) => setJobForm({ ...jobForm, scheduled_date: e.target.value })} style={{ width: '100%', border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', padding: '12px', fontSize: '16px', background: theme.inputBg, color: theme.text }} />
               </div>
 
               <div style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '16px', background: theme.hover }}>
@@ -5096,7 +5182,7 @@ Jane Smith,jane@email.com,555-5678,789 Pine Rd,Call before arrival,
                       type="radio"
                       name="assignmentType"
                       checked={jobForm.assignment_type === 'one-time'}
-                      onChange={() => setJobForm({...jobForm, assignment_type: 'one-time'})}
+                      onChange={() => setJobForm({ ...jobForm, assignment_type: 'one-time' })}
                     />
                     <span style={{ fontSize: '16px' }}>One-time</span>
                   </label>
@@ -5105,7 +5191,7 @@ Jane Smith,jane@email.com,555-5678,789 Pine Rd,Call before arrival,
                       type="radio"
                       name="assignmentType"
                       checked={jobForm.assignment_type === 'recurring'}
-                      onChange={() => setJobForm({...jobForm, assignment_type: 'recurring'})}
+                      onChange={() => setJobForm({ ...jobForm, assignment_type: 'recurring' })}
                     />
                     <span style={{ fontSize: '16px' }}>Recurring (Period)</span>
                   </label>
@@ -5117,7 +5203,7 @@ Jane Smith,jane@email.com,555-5678,789 Pine Rd,Call before arrival,
                       <label style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px', display: 'block' }}>Frequency</label>
                       <select
                         value={jobForm.frequency}
-                        onChange={(e) => setJobForm({...jobForm, frequency: e.target.value})}
+                        onChange={(e) => setJobForm({ ...jobForm, frequency: e.target.value })}
                         style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px', background: 'white' }}
                       >
                         <option value="daily">Daily (every day)</option>
@@ -5131,8 +5217,8 @@ Jane Smith,jane@email.com,555-5678,789 Pine Rd,Call before arrival,
                       <input
                         type="date"
                         value={jobForm.end_date}
-                        onChange={(e) => setJobForm({...jobForm, end_date: e.target.value})}
-                        style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px' }}
+                        onChange={(e) => setJobForm({ ...jobForm, end_date: e.target.value })}
+                        style={{ width: '100%', border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', padding: '12px', fontSize: '16px', background: theme.inputBg, color: theme.text }}
                       />
                     </div>
                     <div style={{ fontSize: '13px', color: theme.textSecondary, background: '#eff6ff', padding: '10px', borderRadius: '6px' }}>
@@ -5148,7 +5234,7 @@ Jane Smith,jane@email.com,555-5678,789 Pine Rd,Call before arrival,
                   <input
                     type="checkbox"
                     checked={jobForm.is_vip}
-                    onChange={(e) => setJobForm({...jobForm, is_vip: e.target.checked})}
+                    onChange={(e) => setJobForm({ ...jobForm, is_vip: e.target.checked })}
                     style={{ width: '20px', height: '20px', cursor: 'pointer' }}
                   />
                   <div>
@@ -5169,7 +5255,7 @@ Jane Smith,jane@email.com,555-5678,789 Pine Rd,Call before arrival,
                     <input
                       type="time"
                       value={jobForm.deadline_time}
-                      onChange={(e) => setJobForm({...jobForm, deadline_time: e.target.value})}
+                      onChange={(e) => setJobForm({ ...jobForm, deadline_time: e.target.value })}
                       style={{ width: '100%', border: '2px solid #dc2626', borderRadius: '8px', padding: '12px', fontSize: '16px' }}
                     />
                     <p style={{ fontSize: '12px', color: theme.textSecondary, marginTop: '6px' }}>
@@ -5189,8 +5275,8 @@ Jane Smith,jane@email.com,555-5678,789 Pine Rd,Call before arrival,
                   min="5"
                   step="5"
                   value={jobForm.estimated_duration_minutes}
-                  onChange={(e) => setJobForm({...jobForm, estimated_duration_minutes: parseInt(e.target.value) || 60})}
-                  style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', fontSize: '16px' }}
+                  onChange={(e) => setJobForm({ ...jobForm, estimated_duration_minutes: parseInt(e.target.value) || 60 })}
+                  style={{ width: '100%', border: `1px solid ${theme.inputBorder}`, borderRadius: '8px', padding: '12px', fontSize: '16px', background: theme.inputBg, color: theme.text }}
                 />
                 <p style={{ fontSize: '12px', color: theme.textSecondary, marginTop: '6px' }}>
                   How long should this job take? ({jobForm.estimated_duration_minutes >= 60 ? `${Math.floor(jobForm.estimated_duration_minutes / 60)}h ${jobForm.estimated_duration_minutes % 60}m` : `${jobForm.estimated_duration_minutes} minutes`})
@@ -5450,13 +5536,14 @@ Jane Smith,jane@email.com,555-5678,789 Pine Rd,Call before arrival,
           backdropFilter: 'blur(4px)'
         }}>
           <div style={{
-            background: 'white',
+            background: darkTheme ? '#1e293b' : 'white',
             borderRadius: '16px',
             padding: '32px',
             maxWidth: '400px',
             width: '90%',
             boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-            textAlign: 'center'
+            textAlign: 'center',
+            color: theme.text
           }}>
             {/* Spinner */}
             <div style={{
@@ -5473,7 +5560,7 @@ Jane Smith,jane@email.com,555-5678,789 Pine Rd,Call before arrival,
             <h3 style={{
               fontSize: '18px',
               fontWeight: '600',
-              color: '#111827',
+              color: theme.text,
               marginBottom: '8px'
             }}>
               {loadingMessage || 'Loading...'}
