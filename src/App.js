@@ -1727,61 +1727,7 @@ const AdminDashboard = () => {
     }
   };
 
-  const generateLightweightPDF = async () => {
-    // Load html2pdf library dynamically
-    if (!window.html2pdf) {
-      const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-      script.async = true;
-      document.body.appendChild(script);
 
-      await new Promise((resolve) => {
-        script.onload = resolve;
-      });
-    }
-
-    const element = document.getElementById('printable-report');
-
-    // Hide photos temporarily for lightweight version
-    const photoSection = element.querySelector('div[style*="gridTemplateColumns"]')?.parentElement;
-    const photosWereVisible = photoSection && photoSection.style.display !== 'none';
-    if (photoSection) photoSection.style.display = 'none';
-
-    const opt = {
-      margin: [8, 8, 8, 8],
-      filename: `Snow_Removal_Report_${clientReportData.propertyName.replace(/\s/g, '_')}_Lite.pdf`,
-      image: { type: 'jpeg', quality: 0.3 },
-      html2canvas: {
-        scale: 0.5,
-        useCORS: true,
-        logging: false,
-        letterRendering: true,
-        allowTaint: true
-      },
-      jsPDF: {
-        unit: 'mm',
-        format: 'a4',
-        orientation: 'portrait',
-        compress: true
-      },
-      pagebreak: { mode: 'avoid-all' }
-    };
-
-    try {
-      const pdfBlob = await window.html2pdf().set(opt).from(element).outputPdf('blob');
-
-      // Restore photos visibility
-      if (photoSection && photosWereVisible) photoSection.style.display = '';
-
-      return pdfBlob;
-    } catch (error) {
-      console.error('PDF generation error:', error);
-      // Restore photos visibility on error
-      if (photoSection && photosWereVisible) photoSection.style.display = '';
-      alert('Error generating PDF. Please try again.');
-      return null;
-    }
-  };
 
   const sendPDFToClient = async () => {
     // EmailJS Configuration
