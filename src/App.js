@@ -17,6 +17,42 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
+// Map Controller Component - Defined global to prevent re-creation on render
+const MapController = ({ displayedProperties, displayedQueues, trigger }) => {
+  const map = useMap();
+
+  // Only fit bounds when the MANUAL trigger changes
+  useEffect(() => {
+    if (!map || trigger === 0) return;
+
+    const timer = setTimeout(() => {
+      if (displayedProperties.length > 0 || displayedQueues.length > 0) {
+        const bounds = L.latLngBounds([]);
+
+        displayedProperties.forEach(p => {
+          const lat = parseFloat(p.latitude);
+          const lng = parseFloat(p.longitude);
+          if (!isNaN(lat) && !isNaN(lng)) bounds.extend([lat, lng]);
+        });
+
+        displayedQueues.forEach(q => {
+          const lat = parseFloat(q.worker?.latitude);
+          const lng = parseFloat(q.worker?.longitude);
+          if (!isNaN(lat) && !isNaN(lng)) bounds.extend([lat, lng]);
+        });
+
+        if (bounds.isValid()) {
+          map.fitBounds(bounds, { animate: false, padding: [50, 50], maxZoom: 15 });
+        }
+      }
+    }, 50);
+
+    return () => clearTimeout(timer);
+  }, [trigger, map]);
+
+  return null;
+};
+
 // Login Component
 const LoginPage = ({ onLogin }) => {
   const [username, setUsername] = useState('');
@@ -139,6 +175,450 @@ const SearchBar = React.memo(({ value, onChange, theme }) => {
   );
 });
 
+// Create icons ONCE outside component - never recreate
+const mapIcons = {
+  blue: L.icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+  }),
+  red: L.icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+  }),
+  green: L.icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+  })
+};
+
+// Separate stable map component
+const StableMap = ({ properties, selectedProperties, onMarkerClick, theme, darkTheme }) => {
+  const propertiesWithCoords = properties.filter(p => p.latitude && p.longitude);
+
+  // Use ref to store center - calculate ONCE on first render, then freeze it
+  const centerRef = React.useRef(null);
+  if (centerRef.current === null) {
+    if (propertiesWithCoords.length === 0) {
+      centerRef.current = [53.5511, 9.9937];
+    } else {
+      const sumLat = propertiesWithCoords.reduce((sum, p) => sum + parseFloat(p.latitude), 0);
+      const sumLng = propertiesWithCoords.reduce((sum, p) => sum + parseFloat(p.longitude), 0);
+      centerRef.current = [sumLat / propertiesWithCoords.length, sumLng / propertiesWithCoords.length];
+    }
+  }
+
+  return (
+    <MapContainer
+      center={centerRef.current}
+      zoom={12}
+      style={{ height: '100%', width: '100%' }}
+      scrollWheelZoom={true}
+      zoomControl={true}
+      preferCanvas={true}
+    >
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+      {propertiesWithCoords.map(property => {
+        const isSelected = selectedProperties.includes(property.id);
+        const isGrouped = !!property.property_group;
+
+        let icon = mapIcons.red; // Default: Unselected & Ungrouped
+        if (isSelected) {
+          icon = mapIcons.blue; // Selected (Priority)
+        } else if (isGrouped) {
+          icon = mapIcons.green; // Already in a group
+        }
+
+        return (
+          <Marker
+            key={property.id}
+            position={[parseFloat(property.latitude), parseFloat(property.longitude)]}
+            icon={icon}
+            eventHandlers={{
+              click: () => onMarkerClick(property.id, isSelected)
+            }}
+          >
+            <Popup>
+              <div style={{ minWidth: '200px' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>{property.property_name}</h3>
+                {property.property_group && (
+                  <span style={{ display: 'inline-block', background: darkTheme ? '#1e3a8a' : '#dbeafe', color: darkTheme ? '#bae6fd' : '#1e40af', fontSize: '10px', fontWeight: '600', padding: '2px 8px', borderRadius: '10px', marginBottom: '4px' }}>
+                    {property.property_group}
+                  </span>
+                )}
+                <p style={{ fontSize: '12px', color: theme.textSecondary, marginTop: '4px' }}>{property.clients?.name}</p>
+                <p style={{ fontSize: '11px', color: theme.text, marginTop: '4px' }}>📍 {property.address}</p>
+              </div>
+            </Popup>
+          </Marker>
+        );
+      })}
+    </MapContainer>
+  );
+};
+
+const WorkerTrackingView = ({ jobs, workers, loadWorkers, properties, theme, darkTheme }) => {
+  const [currentTime, setCurrentTime] = useState(Date.now());
+  const [selectedWorkerId, setSelectedWorkerId] = useState('all');
+  const [isAutoRefresh, setIsAutoRefresh] = useState(false);
+
+  const [fitMapTrigger, setFitMapTrigger] = useState(0); // State for manual map focus
+
+  // Filter active jobs
+  const activeJobs = jobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled' && j.worker_id && j.property_id);
+
+  // Auto-refresh logic (Fallback)
+  useEffect(() => {
+    let interval;
+    if (isAutoRefresh) {
+      interval = setInterval(() => {
+        loadWorkers();
+        setCurrentTime(Date.now());
+      }, 15000);
+    }
+    return () => clearInterval(interval);
+  }, [isAutoRefresh, loadWorkers]);
+
+  // REALTIME GPS TRACKING SUBSCRIPTION
+  useEffect(() => {
+    console.log('📡 Subscribing to realtime worker location updates...');
+    const subscription = supabase
+      .channel('public:profiles')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, (payload) => {
+        const updatedProfile = payload.new;
+        if (updatedProfile.role === 'worker') {
+          console.log(`📍 Realtime update for worker: ${updatedProfile.email}`, updatedProfile.latitude, updatedProfile.longitude);
+          // Trigger parent refresh to update workers prop
+          loadWorkers();
+        }
+      })
+      .subscribe();
+
+    return () => {
+      console.log('Unsubscribing from realtime updates...');
+      supabase.removeChannel(subscription);
+    };
+  }, [loadWorkers]);
+
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  const calculateETA = (distanceKm) => {
+    if (distanceKm === null) return null;
+    // Assumption: 3 minutes per km + 2 mins buffer
+    const minutes = Math.round((distanceKm * 3) + 2);
+    return minutes;
+  };
+
+  const formatTimeAgo = (dateString) => {
+    if (!dateString) return 'Offline';
+    const seconds = Math.floor((new Date() - new Date(dateString)) / 1000);
+    if (seconds < 60) return `${seconds}s ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours}h ago`;
+  };
+
+  // 1. Group jobs by Worker and Calculate Routes
+  const workerQueues = workers.map(worker => {
+    const workerJobs = activeJobs.filter(j => j.worker_id === worker.id);
+
+    // Sort jobs: VIP first, then Distance
+    const sortedJobs = workerJobs.sort((a, b) => {
+      // Priority 1: VIP
+      if (a.is_vip && !b.is_vip) return -1;
+      if (!a.is_vip && b.is_vip) return 1;
+
+      // Priority 2: Distance from Worker
+      const propA = properties.find(p => p.id === a.property_id);
+      const propB = properties.find(p => p.id === b.property_id);
+
+      if (worker.latitude && worker.longitude && propA?.latitude && propA?.longitude && propB?.latitude && propB?.longitude) {
+        const distA = calculateDistance(worker.latitude, worker.longitude, propA.latitude, propA.longitude);
+        const distB = calculateDistance(worker.latitude, worker.longitude, propB.latitude, propB.longitude);
+        return distA - distB;
+      }
+      return 0;
+    });
+
+    // Enrich with Distance/ETA
+    const route = sortedJobs.map(job => {
+      const property = properties.find(p => p.id === job.property_id);
+      let distance = null;
+      let eta = null;
+
+      if (worker.latitude && worker.longitude && property?.latitude && property?.longitude) {
+        distance = calculateDistance(
+          parseFloat(worker.latitude),
+          parseFloat(worker.longitude),
+          parseFloat(property.latitude),
+          parseFloat(property.longitude)
+        );
+        eta = calculateETA(distance);
+      }
+
+      return { job, property, distance, eta };
+    });
+
+    return { worker, route };
+  });
+
+  // Filter displayed workers based on selection
+  const displayedQueues = selectedWorkerId === 'all'
+    ? workerQueues
+    : workerQueues.filter(q => q.worker.id === selectedWorkerId);
+
+  // Collect all unique properties to show on map (from displayed queues)
+  const displayedProperties = [];
+  displayedQueues.forEach(q => {
+    q.route.forEach(r => {
+      if (r.property && !displayedProperties.find(p => p.id === r.property.id)) {
+        displayedProperties.push(r.property);
+      }
+    });
+  });
+
+  const workerIcon = L.divIcon({
+    className: 'custom-worker-icon',
+    html: `<div style="background-color: #2563eb; width: 30px; height: 30px; border-radius: 50%; border: 3px solid white; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">
+              <span style="font-size: 16px;">👷</span>
+             </div>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+    popupAnchor: [0, -15]
+  });
+
+  return (
+    <div style={{ display: 'flex', height: 'calc(100vh - 100px)' }}>
+      {/* Map Section - Bigger Size (70%) */}
+      <div style={{ flex: 3, padding: '20px', paddingRight: '10px', position: 'relative' }}>
+        <div style={{ height: '100%', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+          <MapContainer
+            center={[53.5511, 9.9937]}
+            zoom={11}
+            style={{ height: '100%', width: '100%' }}
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+
+            {/* Controller for Programmatic Moves */}
+            <MapController
+              displayedProperties={displayedProperties}
+              displayedQueues={displayedQueues}
+              trigger={fitMapTrigger}
+            />
+
+            {/* Properties */}
+            {displayedProperties.map(property => {
+              const lat = parseFloat(property.latitude);
+              const lng = parseFloat(property.longitude);
+              if (isNaN(lat) || isNaN(lng)) return null;
+
+              return (
+                <Marker
+                  key={`prop-${property.id}`}
+                  position={[lat, lng]}
+                  icon={mapIcons.red}
+                >
+                  <Popup>
+                    <strong>{property.property_name}</strong><br />
+                    {property.address}
+                  </Popup>
+                </Marker>
+              );
+            })}
+
+            {/* Workers */}
+            {displayedQueues.map(({ worker, route }) => {
+              const lat = parseFloat(worker?.latitude);
+              const lng = parseFloat(worker?.longitude);
+
+              if (isNaN(lat) || isNaN(lng)) return null;
+
+              const activeJob = route.find(r => r.job.status === 'in_progress');
+
+              return (
+                <Marker
+                  key={`worker-${worker.id}`}
+                  position={[lat, lng]}
+                  icon={workerIcon}
+                >
+                  <Popup>
+                    <strong>👷 {worker.full_name || 'Worker'}</strong><br />
+                    Last seen: {formatTimeAgo(worker.last_location_update)}<br />
+                    {activeJob ? `Working on: ${activeJob.property?.property_name}` : 'Status: Idle'}
+                  </Popup>
+                </Marker>
+              );
+            })}
+          </MapContainer>
+
+          {/* Floating Focus Button */}
+          <button
+            onClick={() => setFitMapTrigger(prev => prev + 1)}
+            style={{
+              position: 'absolute', top: '30px', right: '20px', zIndex: 1000,
+              background: 'white', border: 'none', borderRadius: '8px', padding: '10px 14px',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.2)', fontWeight: 'bold', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', color: '#1f2937'
+            }}
+          >
+            🎯 Fit Map
+          </button>
+        </div>
+      </div>
+
+      {/* Sidebar Controls - Smaller Size (30%) */}
+      <div style={{ flex: 1.2, maxWidth: '400px', background: theme.cardBg, borderLeft: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column' }}>
+
+        {/* Header & Controls */}
+        <div style={{ padding: '20px', borderBottom: '1px solid #e5e7eb' }}>
+          <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '16px', color: theme.text }}>Worker Tracking</h2>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* Auto Refresh Toggle */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: theme.hover, padding: '10px', borderRadius: '8px' }}>
+              <span style={{ fontSize: '13px', fontWeight: '600', color: theme.text }}>Auto-Refresh Map</span>
+              <button
+                onClick={() => setIsAutoRefresh(!isAutoRefresh)}
+                style={{
+                  background: isAutoRefresh ? '#10b981' : '#9ca3af',
+                  color: 'white', border: 'none', padding: '6px 12px', borderRadius: '20px',
+                  fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s'
+                }}
+              >
+                {isAutoRefresh ? 'ON 🟢' : 'OFF ⚪'}
+              </button>
+            </div>
+
+            {/* Worker Selector */}
+            <select
+              value={selectedWorkerId}
+              onChange={(e) => setSelectedWorkerId(e.target.value)}
+              style={{
+                padding: '10px', borderRadius: '8px', border: `1px solid ${theme.border}`,
+                background: theme.bg, color: theme.text, fontSize: '13px', width: '100%'
+              }}
+            >
+              <option value="all">👀 Showing All Workers</option>
+              {workers.map(w => (
+                <option key={w.id} value={w.id}>👷 {w.full_name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Worker Queues List */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
+          {displayedQueues.map(({ worker, route }) => (
+            <div key={worker.id} style={{ marginBottom: '24px', background: theme.hover, borderRadius: '12px', overflow: 'hidden', border: '1px solid #e5e7eb' }}>
+              {/* Worker Header */}
+              <div style={{ padding: '12px 16px', background: darkTheme ? '#1e3a8a' : '#dbeafe', borderBottom: '1px solid #bfdbfe' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 'bold', color: darkTheme ? '#bae6fd' : '#1e40af' }}>{worker.full_name}</span>
+                  <span style={{ fontSize: '11px', background: 'rgba(255,255,255,0.3)', padding: '2px 8px', borderRadius: '10px', color: darkTheme ? '#bae6fd' : '#1e40af' }}>
+                    {formatTimeAgo(worker.last_location_update)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Job Route Timeline */}
+              <div style={{ padding: '12px' }}>
+                {route.length === 0 ? (
+                  <p style={{ fontSize: '12px', color: theme.textSecondary, textAlign: 'center', padding: '10px' }}>No active jobs</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                    {route.map((item, index) => {
+                      const isLast = index === route.length - 1;
+                      const isActive = item.job.status === 'in_progress';
+
+                      return (
+                        <div key={item.job.id} style={{ display: 'flex', gap: '12px', position: 'relative' }}>
+                          {/* Timeline Connector */}
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '20px' }}>
+                            <div style={{
+                              width: '12px', height: '12px', borderRadius: '50%',
+                              background: isActive ? '#3b82f6' : (item.job.is_vip ? '#ef4444' : '#d1d5db'),
+                              border: isActive ? '2px solid white' : 'none',
+                              boxShadow: isActive ? '0 0 0 2px #3b82f6' : 'none',
+                              zIndex: 2, marginTop: '6px'
+                            }} />
+                            {!isLast && <div style={{ width: '2px', flex: 1, background: '#e5e7eb', minHeight: '40px' }} />}
+                          </div>
+
+                          {/* Content */}
+                          <div style={{ flex: 1, paddingBottom: isLast ? '0' : '20px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                              <span style={{ fontSize: '13px', fontWeight: '600', color: theme.text }}>
+                                {item.property?.property_name}
+                              </span>
+                              {item.job.is_vip && <span style={{ fontSize: '10px', color: '#ef4444', fontWeight: 'bold' }}>VIP</span>}
+                            </div>
+
+                            <div style={{ fontSize: '11px', color: theme.textSecondary, marginBottom: '4px' }}>
+                              {item.property?.address}
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                              {isActive ? (
+                                <span style={{ fontSize: '10px', background: '#dbeafe', color: '#1e40af', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                                  IN PROGRESS
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: '10px', background: '#f3f4f6', color: '#6b7280', padding: '2px 6px', borderRadius: '4px' }}>
+                                  QUEUED
+                                </span>
+                              )}
+
+                              {/* ETA Display */}
+                              {item.eta !== null && !isActive && (
+                                <span style={{ fontSize: '11px', color: '#059669', fontWeight: '600' }}>
+                                  🚗 ~{item.eta} mins ({item.distance?.toFixed(1)} km)
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [othersSubTab, setOthersSubTab] = useState('today');
@@ -227,6 +707,7 @@ const AdminDashboard = () => {
   const [bulkImportText, setBulkImportText] = useState('');
   const [bulkImportPreview, setBulkImportPreview] = useState(null);
   const [bulkImportProcessing, setBulkImportProcessing] = useState(false);
+  const [showIssueNotifications, setShowIssueNotifications] = useState(false);
 
   // Property grouping state
   const [propertyGroups, setPropertyGroups] = useState([]);
@@ -264,6 +745,62 @@ const AdminDashboard = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showNotifications]);
+
+  // Audio Notification Helper (Web Audio API for reliability)
+  // Audio Notification Helper (Web Audio API for reliability)
+  // Audio Notification Helper (Web Audio API for reliability)
+  const playNotificationSound = (type = 'success', text = '') => {
+    try {
+      // Voice Notification (TTS)
+      if (text && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel(); // effective immediate cancel
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+        window.speechSynthesis.speak(utterance);
+      }
+
+      // Sound Effect (Beep/Ding)
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      const now = ctx.currentTime;
+
+      if (type === 'error') {
+        // Error Sound: Low pitch 'bonk' / double beep (Sawtooth)
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(220, now); // A3
+        osc.frequency.linearRampToValueAtTime(110, now + 0.3); // Drop to A2 quickly
+
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+        osc.start(now);
+        osc.stop(now + 0.3);
+      } else {
+        // Success Sound: High pitch 'ding' (Sine)
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, now); // A5
+        osc.frequency.exponentialRampToValueAtTime(440, now + 0.5); // Drop to A4 slowly
+
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+        osc.start(now);
+        osc.stop(now + 0.5);
+      }
+    } catch (e) {
+      console.error('Audio play failed:', e);
+    }
+  };
 
   // Realtime subscription for job completions
   useEffect(() => {
@@ -304,8 +841,10 @@ const AdminDashboard = () => {
             if (percentage === 100) {
               console.log('🎉 100% COMPLETE! Showing notification...');
               const workerName = workerJobs[0].profiles?.full_name || 'Worker';
+              playNotificationSound('success', `Worker ${workerName} has completed all jobs.`);
+
               const notification = {
-                id: Date.now(),
+                id: `${workerId}-${new Date().toISOString().split('T')[0]}-${workerJobs.length}`, // ID includes job count
                 workerId: workerId,
                 workerName: workerName,
                 date: new Date().toISOString().split('T')[0],
@@ -336,6 +875,40 @@ const AdminDashboard = () => {
       })
       .subscribe();
 
+    // Realtime subscription for REPORTED ISSUES
+    const issueSubscription = supabase
+      .channel('job_issues_channel')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'job_issues'
+      }, async (payload) => {
+        console.log('⚠️ New Issue Reported:', payload.new);
+        // Play error sound and voice
+        playNotificationSound('error', 'New Issue Reported');
+
+        // Show browser notification
+        if (Notification.permission === 'granted') {
+          new Notification('⚠️ New Issue Reported', {
+            body: `ID: ${payload.new.id} - ${payload.new.issue_type}`,
+            icon: '/logo192.png'
+          });
+        }
+
+        // Reload issues to update badge
+        await loadIssues();
+
+        // Show persistent alert in app
+        setAlertConfig({
+          title: '⚠️ New Issue Reported',
+          message: `A new issue has been reported! ID: ${payload.new.id}`,
+          type: 'error',
+          onConfirm: () => setActiveTab('issues')
+        });
+        setShowAlert(true);
+      })
+      .subscribe();
+
     // Request notification permissions
     if (Notification.permission === 'default') {
       Notification.requestPermission();
@@ -343,6 +916,7 @@ const AdminDashboard = () => {
 
     return () => {
       subscription.unsubscribe();
+      issueSubscription.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -406,6 +980,57 @@ const AdminDashboard = () => {
         profiles: undefined
       }));
       setJobs(mappedData);
+
+      // CHECK FOR WORKER COMPLETIONS (Persistent Notification Logic)
+      const workerCompletionMap = {};
+      const today = new Date().toISOString().split('T')[0];
+
+      mappedData.forEach(job => {
+        // Use job.profiles.full_name directly if available, or fall back to mapped worker name
+        const wName = job.workers?.name || 'Worker';
+
+        if (job.worker_id && job.published && job.scheduled_date === today) {
+          if (!workerCompletionMap[job.worker_id]) {
+            workerCompletionMap[job.worker_id] = {
+              total: 0,
+              completed: 0,
+              workerName: wName,
+              jobs: []
+            };
+          }
+          workerCompletionMap[job.worker_id].total++;
+          if (job.status === 'completed') {
+            workerCompletionMap[job.worker_id].completed++;
+          }
+        }
+      });
+
+      // Generate notifications for 100% completed workers
+      const newNotifications = [];
+      const dismissedNotifications = JSON.parse(localStorage.getItem('dismissedNotifications') || '[]');
+
+      Object.keys(workerCompletionMap).forEach(workerId => {
+        const stats = workerCompletionMap[workerId];
+        if (stats.total > 0 && stats.total === stats.completed) {
+          const notifId = `${workerId}-${today}-${stats.total}`; // Include total jobs in ID
+          if (!dismissedNotifications.includes(notifId)) {
+            newNotifications.push({
+              id: notifId, // Unique ID per worker per day per job count
+              workerId: workerId,
+              workerName: stats.workerName,
+              date: today,
+              totalJobs: stats.total,
+              timestamp: new Date().toISOString()
+            });
+          }
+        }
+      });
+
+      if (newNotifications.length > 0) {
+        setCompletionNotifications(newNotifications);
+        // Play sound if we found completion notifications on load
+        playNotificationSound('success', 'Workers have completed their jobs.');
+      }
     }
   };
 
@@ -2073,193 +2698,7 @@ const AdminDashboard = () => {
     </div>
   );
 
-  // Create icons ONCE outside component - never recreate
-  const mapIcons = {
-    blue: L.icon({
-      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
-      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-      shadowSize: [41, 41]
-    }),
-    red: L.icon({
-      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-      shadowSize: [41, 41]
-    })
-  };
 
-  // Separate stable map component
-  const StableMap = ({ properties, selectedProperties, onMarkerClick }) => {
-    const propertiesWithCoords = properties.filter(p => p.latitude && p.longitude);
-
-    // Use ref to store center - calculate ONCE on first render, then freeze it
-    const centerRef = React.useRef(null);
-    if (centerRef.current === null) {
-      if (propertiesWithCoords.length === 0) {
-        centerRef.current = [53.5511, 9.9937];
-      } else {
-        const sumLat = propertiesWithCoords.reduce((sum, p) => sum + parseFloat(p.latitude), 0);
-        const sumLng = propertiesWithCoords.reduce((sum, p) => sum + parseFloat(p.longitude), 0);
-        centerRef.current = [sumLat / propertiesWithCoords.length, sumLng / propertiesWithCoords.length];
-      }
-    }
-
-    return (
-      <MapContainer
-        center={centerRef.current}
-        zoom={12}
-        style={{ height: '100%', width: '100%' }}
-        scrollWheelZoom={true}
-        zoomControl={true}
-        preferCanvas={true}
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        {propertiesWithCoords.map(property => {
-          const isSelected = selectedProperties.includes(property.id);
-          return (
-            <Marker
-              key={property.id}
-              position={[parseFloat(property.latitude), parseFloat(property.longitude)]}
-              icon={isSelected ? mapIcons.blue : mapIcons.red}
-              eventHandlers={{
-                click: () => onMarkerClick(property.id, isSelected)
-              }}
-            >
-              <Popup>
-                <div style={{ minWidth: '200px' }}>
-                  <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>{property.property_name}</h3>
-                  {property.property_group && (
-                    <span style={{ display: 'inline-block', background: darkTheme ? '#1e3a8a' : '#dbeafe', color: darkTheme ? '#bae6fd' : '#1e40af', fontSize: '10px', fontWeight: '600', padding: '2px 8px', borderRadius: '10px', marginBottom: '4px' }}>
-                      {property.property_group}
-                    </span>
-                  )}
-                  <p style={{ fontSize: '12px', color: theme.textSecondary, marginTop: '4px' }}>{property.clients?.name}</p>
-                  <p style={{ fontSize: '11px', color: theme.text, marginTop: '4px' }}>📍 {property.address}</p>
-                </div>
-              </Popup>
-            </Marker>
-          );
-        })}
-      </MapContainer>
-    );
-  };
-
-  const WorkerTrackingView = () => {
-    // Get all active jobs with workers and properties
-    const activeJobs = jobs.filter(j => j.status !== 'completed' && j.worker_id && j.property_id);
-
-    // Calculate distances for each worker-job pair
-    const workerJobDistances = activeJobs.map(job => {
-      const worker = workers.find(w => w.id === job.worker_id);
-      const property = properties.find(p => p.id === job.property_id);
-
-      // For now, we'll use placeholder worker locations (can be updated with real GPS data later)
-      // Distance calculation would need worker's current location
-      return {
-        job,
-        worker,
-        property,
-        distance: null // Placeholder - would calculate actual distance with worker GPS
-      };
-    });
-
-    return (
-      <div style={{ display: 'flex', height: 'calc(100vh - 100px)' }}>
-        {/* Map Section - Left Side */}
-        <div style={{ flex: 1, padding: '20px', paddingRight: '10px' }}>
-          <div style={{ height: '100%', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-            <StableMap
-              properties={properties.filter(p => activeJobs.some(j => j.property_id === p.id))}
-              selectedProperties={[]}
-              onMarkerClick={() => { }}
-            />
-          </div>
-        </div>
-
-        {/* Sidebar - Right Side */}
-        <div style={{ width: '400px', background: theme.cardBg, borderLeft: '1px solid #e5e7eb', padding: '20px', overflowY: 'auto' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '20px', color: theme.text }}>Worker Tracking</h2>
-
-          <p style={{ fontSize: '13px', color: theme.textSecondary, marginBottom: '20px', padding: '12px', background: '#fef3c7', borderRadius: '6px', border: '1px solid #fcd34d' }}>
-            📍 Worker GPS tracking coming soon. This map shows active job locations.
-          </p>
-
-          {/* Active Jobs List */}
-          <div>
-            <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', color: theme.text }}>
-              Active Jobs ({activeJobs.length})
-            </h3>
-
-            {activeJobs.length === 0 ? (
-              <div style={{ padding: '40px 20px', textAlign: 'center', background: theme.hover, borderRadius: '8px' }}>
-                <p style={{ color: theme.textSecondary, fontSize: '14px' }}>No active jobs</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {workerJobDistances.map(({ job, worker, property }) => (
-                  <div key={job.id} style={{ background: theme.hover, padding: '14px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
-                      <div>
-                        <div style={{ fontSize: '13px', fontWeight: '600', color: theme.text }}>
-                          {worker?.full_name || 'Unknown Worker'}
-                        </div>
-                        <div style={{ fontSize: '11px', color: theme.textSecondary, marginTop: '2px' }}>
-                          {worker?.email}
-                        </div>
-                      </div>
-                      <span style={{
-                        fontSize: '10px',
-                        fontWeight: '600',
-                        padding: '4px 8px',
-                        borderRadius: '12px',
-                        background: job.status === 'in_progress' ? '#dbeafe' : '#fef3c7',
-                        color: job.status === 'in_progress' ? '#1e40af' : '#92400e'
-                      }}>
-                        {job.status === 'in_progress' ? '🔄 In Progress' : '📋 Assigned'}
-                      </span>
-                    </div>
-
-                    <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '8px', marginTop: '8px' }}>
-                      <div style={{ fontSize: '12px', fontWeight: '600', color: theme.text, marginBottom: '4px' }}>
-                        📍 {property?.property_name}
-                      </div>
-                      <div style={{ fontSize: '11px', color: theme.textSecondary, marginBottom: '4px' }}>
-                        {property?.address}
-                      </div>
-                      <div style={{ fontSize: '11px', color: theme.textSecondary }}>
-                        📅 Scheduled: {job.scheduled_date}
-                      </div>
-                      {job.deadline_time && (
-                        <div style={{ fontSize: '11px', color: '#dc2626', marginTop: '4px', fontWeight: '500' }}>
-                          ⏰ Deadline: {job.deadline_time}
-                        </div>
-                      )}
-                    </div>
-
-                    {property?.property_group && (
-                      <div style={{ marginTop: '8px' }}>
-                        <span style={{ fontSize: '10px', fontWeight: '600', padding: '3px 8px', borderRadius: '10px', background: darkTheme ? '#1e3a8a' : '#dbeafe', color: darkTheme ? '#bae6fd' : '#1e40af' }}>
-                          Group: {property.property_group}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   const MapView = () => {
     const propertiesWithCoords = filteredProperties.filter(p => p.latitude && p.longitude);
@@ -2282,6 +2721,8 @@ const AdminDashboard = () => {
                 properties={filteredProperties}
                 selectedProperties={selectedProperties}
                 onMarkerClick={handleMarkerClick}
+                theme={theme}
+                darkTheme={darkTheme}
               />
             </div>
           ) : (
@@ -2329,11 +2770,15 @@ const AdminDashboard = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{ width: '16px', height: '16px', background: '#2563eb', borderRadius: '50%' }}></div>
-                <span style={{ fontSize: '13px', color: theme.textSecondary }}>Selected</span>
+                <span style={{ fontSize: '13px', color: theme.textSecondary }}>Currently Selected (Priority)</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '16px', height: '16px', background: '#10b981', borderRadius: '50%' }}></div>
+                <span style={{ fontSize: '13px', color: theme.textSecondary }}>Already in a Group (New!)</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{ width: '16px', height: '16px', background: '#dc2626', borderRadius: '50%' }}></div>
-                <span style={{ fontSize: '13px', color: theme.textSecondary }}>Unselected</span>
+                <span style={{ fontSize: '13px', color: theme.textSecondary }}>Unselected / No Group</span>
               </div>
             </div>
           </div>
@@ -4348,13 +4793,74 @@ const AdminDashboard = () => {
               {darkTheme ? '☀️' : '🌙'}
             </button>
 
+            {/* Reported Issues Notification */}
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setShowIssueNotifications(!showIssueNotifications)}
+                style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '500', position: 'relative', marginRight: '12px' }}
+                title="Reported Issues"
+              >
+                ⚠️
+                {issues.filter(i => !i.resolved).length > 0 && (
+                  <span style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#ef4444', color: 'white', borderRadius: '10px', padding: '2px 6px', fontSize: '11px', fontWeight: 'bold', minWidth: '18px', textAlign: 'center' }}>
+                    {issues.filter(i => !i.resolved).length}
+                  </span>
+                )}
+              </button>
+
+              {/* Issues Dropdown */}
+              {showIssueNotifications && (
+                <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '8px', background: theme.cardBg, borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', width: '360px', maxHeight: '400px', overflowY: 'auto', zIndex: 101 }}>
+                  <div style={{ padding: '16px', borderBottom: `1px solid ${theme.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold', color: theme.text }}>⚠️ Reported Issues</h3>
+                    <button
+                      onClick={() => setActiveTab('issues')}
+                      style={{ padding: '4px 8px', background: theme.hover, color: '#f59e0b', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                    >
+                      View All
+                    </button>
+                  </div>
+
+                  {issues.filter(i => !i.resolved).length === 0 ? (
+                    <div style={{ padding: '32px', textAlign: 'center', color: theme.textSecondary }}>
+                      <p style={{ margin: 0, fontSize: '14px' }}>No unresolved issues</p>
+                    </div>
+                  ) : (
+                    <div>
+                      {issues.filter(i => !i.resolved).slice(0, 5).map((issue, index) => (
+                        <div key={issue.id} style={{ padding: '16px', borderBottom: index < 5 ? `1px solid ${theme.border}` : 'none', cursor: 'pointer', ':hover': { background: theme.hover } }} onClick={() => { setActiveTab('issues'); setShowIssueNotifications(false); }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '4px' }}>
+                            <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#ef4444', textTransform: 'uppercase', background: '#fee2e2', padding: '2px 6px', borderRadius: '4px' }}>{issue.issue_type}</span>
+                            <span style={{ fontSize: '11px', color: theme.textSecondary }}>{new Date(issue.created_at).toLocaleTimeString()}</span>
+                          </div>
+                          <p style={{ margin: '8px 0 4px 0', fontSize: '14px', fontWeight: '600', color: theme.text }}>
+                            {issue.jobs?.properties?.property_name || 'Unknown Property'}
+                          </p>
+                          <p style={{ margin: 0, fontSize: '13px', color: theme.textSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {issue.issue_description}
+                          </p>
+                        </div>
+                      ))}
+                      {issues.filter(i => !i.resolved).length > 5 && (
+                        <div style={{ padding: '12px', textAlign: 'center', background: theme.hover, borderTop: `1px solid ${theme.border}` }}>
+                          <span style={{ fontSize: '12px', color: theme.textSecondary }}>+ {issues.filter(i => !i.resolved).length - 5} more issues</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Notification Bell */}
             <div style={{ position: 'relative' }} data-notification-panel>
+
+
               <button
                 onClick={() => setShowNotifications(!showNotifications)}
                 style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '500', position: 'relative' }}
               >
-                🔔
+                🏆
                 {completionNotifications.length > 0 && (
                   <span style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#10b981', color: 'white', borderRadius: '10px', padding: '2px 6px', fontSize: '11px', fontWeight: 'bold', minWidth: '18px', textAlign: 'center' }}>
                     {completionNotifications.length}
@@ -4369,7 +4875,12 @@ const AdminDashboard = () => {
                     <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold', color: theme.text }}>🎉 Completions</h3>
                     {completionNotifications.length > 0 && (
                       <button
-                        onClick={() => setCompletionNotifications([])}
+                        onClick={() => {
+                          const ids = completionNotifications.map(n => n.id);
+                          const existing = JSON.parse(localStorage.getItem('dismissedNotifications') || '[]');
+                          localStorage.setItem('dismissedNotifications', JSON.stringify([...existing, ...ids]));
+                          setCompletionNotifications([]);
+                        }}
                         style={{ padding: '4px 8px', background: theme.hover, color: theme.textSecondary, border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}
                       >
                         Clear All
@@ -4398,7 +4909,11 @@ const AdminDashboard = () => {
                               </p>
                             </div>
                             <button
-                              onClick={() => setCompletionNotifications(prev => prev.filter(n => n.id !== notif.id))}
+                              onClick={() => {
+                                const existing = JSON.parse(localStorage.getItem('dismissedNotifications') || '[]');
+                                localStorage.setItem('dismissedNotifications', JSON.stringify([...existing, notif.id]));
+                                setCompletionNotifications(prev => prev.filter(n => n.id !== notif.id));
+                              }}
                               style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '16px' }}
                             >
                               ✕
@@ -4481,7 +4996,7 @@ const AdminDashboard = () => {
             {activeTab === 'properties' && <PropertiesView />}
             {activeTab === 'jobs' && <JobsView />}
             {activeTab === 'map' && <MapView />}
-            {activeTab === 'tracking' && <WorkerTrackingView />}
+            {activeTab === 'tracking' && <WorkerTrackingView jobs={jobs} workers={workers} loadWorkers={loadWorkers} properties={properties} theme={theme} darkTheme={darkTheme} />}
             {activeTab === 'others' && (
               <>
                 {othersSubTab === 'today' && <TodayJobsView />}
@@ -5150,7 +5665,7 @@ const AdminDashboard = () => {
                   <div style={{ border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', maxHeight: '200px', overflow: 'auto' }}>
                     <p style={{ fontSize: '14px', fontWeight: '600', marginBottom: '10px' }}>Adjust Selection ({selectedProperties.length} selected)</p>
                     {properties.map(p => (
-                      <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', cursor: 'pointer', borderRadius: '6px', background: selectedProperties.includes(p.id) ? '#eff6ff' : 'transparent' }}>
+                      <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', cursor: 'pointer', borderRadius: '6px', background: selectedProperties.includes(p.id) ? (darkTheme ? '#374151' : '#eff6ff') : 'transparent' }}>
                         <input
                           type="checkbox"
                           checked={selectedProperties.includes(p.id)}
