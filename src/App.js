@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Users, Home, Calendar, Plus, Trash2, CheckCircle, Clock, Upload, X, Edit, Search, Grid3x3, List, Pencil, MapPin, Map as MapIcon } from 'lucide-react';
+import { Plus, Trash2, Upload, X, Edit, Search, Grid3x3, List, Pencil, MapPin, Map as MapIcon } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -48,7 +48,7 @@ const MapController = ({ displayedProperties, displayedQueues, trigger }) => {
     }, 50);
 
     return () => clearTimeout(timer);
-  }, [trigger, map]);
+  }, [trigger, map, displayedProperties, displayedQueues]);
 
   return null;
 };
@@ -272,7 +272,6 @@ const StableMap = ({ properties, selectedProperties, onMarkerClick, theme, darkT
 };
 
 const WorkerTrackingView = ({ jobs, workers, loadWorkers, properties, theme, darkTheme }) => {
-  const [currentTime, setCurrentTime] = useState(Date.now());
   const [selectedWorkerId, setSelectedWorkerId] = useState('all');
   const [isAutoRefresh, setIsAutoRefresh] = useState(false);
 
@@ -287,7 +286,6 @@ const WorkerTrackingView = ({ jobs, workers, loadWorkers, properties, theme, dar
     if (isAutoRefresh) {
       interval = setInterval(() => {
         loadWorkers();
-        setCurrentTime(Date.now());
       }, 15000);
     }
     return () => clearInterval(interval);
@@ -664,7 +662,7 @@ const AdminDashboard = () => {
     estimated_duration_minutes: 60
   });
   const [selectedProperties, setSelectedProperties] = useState([]);
-  const [selectedWorkers, setSelectedWorkers] = useState([]);
+  // const [selectedWorkers, setSelectedWorkers] = useState([]);
   const [selectedClients, setSelectedClients] = useState([]);
   const [selectedJobs, setSelectedJobs] = useState([]);
   const [bulkMode, setBulkMode] = useState(false);
@@ -927,10 +925,7 @@ const AdminDashboard = () => {
     setShowAlert(true);
   };
 
-  const showCustomConfirm = (title, message, onConfirm) => {
-    setAlertConfig({ title, message, type: 'confirm', onConfirm });
-    setShowAlert(true);
-  };
+
 
   const loadAllData = async () => {
     setLoading(true);
@@ -2124,14 +2119,7 @@ const AdminDashboard = () => {
     setPropertyForm({ ...propertyForm, highlight_photos: newPhotos });
   };
 
-  const stats = {
-    totalWorkers: workers.length,
-    totalClients: clients.length,
-    totalProperties: properties.length,
-    jobsToday: jobs.filter(j => j.scheduled_date === new Date().toISOString().split('T')[0]).length,
-    jobsCompleted: jobs.filter(j => j.status === 'completed').length,
-    jobsPending: jobs.filter(j => j.status === 'assigned').length
-  };
+
 
   const filteredWorkers = workers.filter(w => w.name.toLowerCase().includes(searchTerm.toLowerCase()) || w.email.toLowerCase().includes(searchTerm.toLowerCase()));
   const filteredClients = clients.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()));
